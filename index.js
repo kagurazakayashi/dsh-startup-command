@@ -31,6 +31,60 @@ const SettingsSchema = z.object({
 });
 
 /**
+ * 把使用者提供的命令列字串拆成 argv token（逐字元掃描，支援雙引號 /
+ * 單引號分組）：引號只做分組與剝離，不會留在 token 內。
+ * @param {string} input - 原始命令列字串。
+ * @returns {string[]} 拆解後的 token 列表。
+ */
+function splitCommandLine(input) {
+	const tokens = [];
+	let current = "";
+	let inDouble = false;
+	let inSingle = false;
+	for (let i = 0; i < input.length; i++) {
+		const ch = input[i];
+		if (inDouble) {
+			if (ch === '"') inDouble = false;
+			else current += ch;
+		} else if (inSingle) {
+			if (ch === "'") inSingle = false;
+			else current += ch;
+		} else if (ch === '"') {
+			inDouble = true;
+		} else if (ch === "'") {
+			inSingle = true;
+		} else if (/\s/.test(ch)) {
+			if (current !== "") {
+				tokens.push(current);
+				current = "";
+			}
+		} else {
+			current += ch;
+		}
+	}
+	if (current !== "") tokens.push(current);
+	return tokens;
+}
+
+/**
+ * 把 command 設定值解析為 argv 序列（每條命令一個 argv 陣列），
+ * 並以實際 URL 替換 {url} 佔位符。
+ * @param {string | string[] | undefined} command - 設定中的 command 值。
+ * @param {string} url - 本機 Web GUI 的實際 URL。
+ * @returns {string[][] | null} 完全未設定（或皆為空白）時回傳 null。
+ */
+function resolveCommands(command, url) {
+	const items = Array.isArray(command) ? command : [command];
+	const commands = [];
+	for (const item of items) {
+		if (typeof item !== "string" || item.trim() === "") continue;
+		const argv = splitCommandLine(item.replaceAll("{url}", url));
+		if (argv.length > 0) commands.push(argv);
+	}
+	return commands.length > 0 ? commands : null;
+}
+
+/**
  * 插件主體：目前僅註冊 settings 命名空間，命令執行邏輯留待後續補上。
  * @param {object} ctx - cordis 插件上下文。
  */
