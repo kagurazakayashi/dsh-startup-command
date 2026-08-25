@@ -7,7 +7,10 @@
  *
  * 設定位置：settings.yaml 的 dsh-startup-command 命名空間（本插件透過
  * @deepseek-ai/dsh-settings 註冊 schema，schema 預設值在未配置時生效）。
+ * command 可寫單條字串，或寫成陣列表示多條命令；多條命令會依序執行，
+ * 前一條退出後才啟動下一條。
  */
+import { spawn } from "node:child_process";
 import z from "@deepseek-ai/schemastery";
 
 /** 穩定插件名稱（顯示於 Loader 日誌與外掛清單）。 */
@@ -82,6 +85,38 @@ function resolveCommands(command, url) {
 		if (argv.length > 0) commands.push(argv);
 	}
 	return commands.length > 0 ? commands : null;
+}
+
+/**
+ * 啟動單條命令並等待其退出（detached：命令獨立於 dsh 程序，dsh 退出不受拖住）。
+ * @param {string[]} argv - 已解析的命令參數（argv[0] 為可執行檔）。
+ * @param {boolean} shell - 是否經系統 shell 執行。
+ * @returns {Promise<void>} 命令退出（或啟動失敗）時 resolve。
+ */
+function runOne(argv, shell) {
+	return new Promise((resolve) => {
+		const child = spawn(argv[0], argv.slice(1), {
+			detached: true,
+			stdio: "ignore",
+			shell,
+			windowsHide: true
+		});
+		console.log(`dsh-startup-command: ${argv.join(" ")}`);
+		// close（正常退出）與 error（啟動失敗）都結束等待；Promise 只 settle 一次。
+		child.once("close", () => resolve());
+		child.once("error", () => resolve());
+	});
+}
+
+/**
+ * 依序執行命令序列：前一條退出後才啟動下一條。
+ * @param {string[][]} commands - argv 序列。
+ * @param {boolean} shell - 是否經系統 shell 執行。
+ */
+async function runSequence(commands, shell) {
+	for (const argv of commands) {
+		await runOne(argv, shell);
+	}
 }
 
 /**
