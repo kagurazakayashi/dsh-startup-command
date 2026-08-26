@@ -1,14 +1,27 @@
 /**
- * dsh-startup-command — 在 dsh web 啟動成功後執行使用者自訂命令的本地插件。
+ * dsh-startup-command — 在 dsh web 啟動成功（webServer 監聽啟動、Loader 樹穩定）後，
+ * 依使用者在 settings.yaml 設定的自訂命令執行指定動作（例如開啟指定瀏覽器）。
  *
- * 掛在 web profile 使用者層：cordis.patch.yml 以相對路徑 name
- * （./plugins/dsh-startup-command/index.js）引用本目錄，Loader 依
+ * 這是掛在 web profile 使用者層的本地 host 插件：cordis.patch.yml 以
+ * 相對路徑 name（./plugins/dsh-startup-command/index.js）引用本目錄，Loader 依
  * baseUrl（profile 目錄）解析並以 ESM 匯入。
+ *
+ * 觸發時機與內建 web-app 的 openBrowser 相同：等 Loader 樹全部 settle
+ * 且 webServer 服務存在之後才執行，因此 URL 一定是「監聽啟動後」的
+ * 實際位址（含 --port 0 由作業系統分配的情形）。
  *
  * 設定位置：settings.yaml 的 dsh-startup-command 命名空間（本插件透過
  * @deepseek-ai/dsh-settings 註冊 schema，schema 預設值在未配置時生效）。
  * command 可寫單條字串，或寫成陣列表示多條命令；多條命令會依序執行，
- * 前一條退出後才啟動下一條。
+ * 前一條退出後才啟動下一條：
+ *
+ *   dsh-startup-command:
+ *     enabled: true
+ *     command:
+ *       - '"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="D:\dsh-chrome-profile" --app={url}'
+ *     shell: false
+ *
+ * {url} 佔位符會在執行前替換為實際 GUI 位址（http://127.0.0.1:<port>）。
  */
 import { spawn } from "node:child_process";
 import z from "@deepseek-ai/schemastery";
@@ -25,7 +38,7 @@ const SETTINGS_NS = "dsh-startup-command";
 /**
  * 設定命名空間的 schema：command 接受單條字串或字串陣列（多條命令），
  * 預設值為空陣列（什麼都不做）；因此 settings.yaml 完全未配置時插件
- * 仍能安全啟動。
+ * 仍能安全啟動（不執行任何命令，僅印出警告）。
  */
 const SettingsSchema = z.object({
 	enabled: z.boolean().default(true),
@@ -35,7 +48,10 @@ const SettingsSchema = z.object({
 
 /**
  * 把使用者提供的命令列字串拆成 argv token（逐字元掃描，支援雙引號 /
- * 單引號分組）：引號只做分組與剝離，不會留在 token 內。
+ * 單引號分組）：引號只做分組與剝離，不會留在 token 內，因此
+ * --user-data-dir="D:\dsh-chrome-profile" 會解析為單一 token
+ * --user-data-dir=D:\dsh-chrome-profile；含空格的引號值（如可執行檔路徑）
+ * 也能正確保留內部空格。
  * @param {string} input - 原始命令列字串。
  * @returns {string[]} 拆解後的 token 列表。
  */
@@ -120,11 +136,40 @@ async function runSequence(commands, shell) {
 }
 
 /**
- * 插件主體：目前僅註冊 settings 命名空間，命令執行邏輯留待後續補上。
+ * 插件主體：註冊 settings 命名空間，並在啟動成功後依序執行使用者命令。
  * @param {object} ctx - cordis 插件上下文。
  */
 export function apply(ctx) {
+	// 註冊設定命名空間：settings.yaml 的 dsh-startup-command 頂層鍵由此 schema
+	// 驗證與解析（schema 預設值 + 使用者層覆蓋）。
 	ctx.inject(["settings"], (sctx) => {
 		sctx.settings.register(SETTINGS_NS, SettingsSchema);
 	});
+
+	/** 在 Loader settle 且 webServer 就緒時執行使用者命令序列。 */
+	const launch = () => {
+		const server = /** @type {{port?: number} | undefined} */ (ctx.get("webServer"));
+		if (server === undefined || server.port === undefined) return;
+		const url = `http://127.0.0.1:${String(server.port)}`;
+		const settings = /** @type {{enabled: boolean, command: string | string[], shell: boolean} | undefined} */ (ctx.get("settings")?.get(SETTINGS_NS));
+		// Loader settle 後註冊必然已完成，此處理論上不會是 undefined。
+		if (settings === undefined) return;
+		if (settings.enabled === false) return;
+		const commands = resolveCommands(settings.command, url);
+		if (commands === null) {
+			console.warn("dsh-startup-command: 未設定 command，略過");
+			return;
+		}
+		runSequence(commands, settings.shell === true).catch(() => {});
+	};
+
+	// 與內建 web-app 相同的生命週期鉤子：等整棵 Loader 樹穩定後再取 port。
+	const settled = /** @type {{await(): Promise<unknown>} | undefined} */ (ctx.get("loader"))?.await();
+	if (settled === undefined) {
+		launch();
+		return;
+	}
+	settled.then(() => {
+		if (ctx.get("webServer") !== undefined) launch();
+	}, () => {});
 }
