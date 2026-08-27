@@ -1,0 +1,7 @@
+# Minimal bundle patch for the dsh-startup-command out-of-tree plugin.
+# Applied over the profile root as ONE insert; the profile's own
+# cordis.patch.yml and any --patch overlays can still override this row by id.
+- insert:
+    - id: dsh-startup-command
+      name: '@kagurazakayashi/dsh-startup-command'
+      inject: [webServer]
