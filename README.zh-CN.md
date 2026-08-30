@@ -16,10 +16,11 @@
 - **不阻塞 dsh 进程**：以 `detached` 方式生成子进程并 `unref()`，命令独立运行，dsh 退出时不会被拖住。
 - **开关与模式**：`enabled: false` 可临时关闭；`shell: true` 可走系统 shell 执行（默认关闭，直接以参数数组 spawn，路径含空格也安全）。
 - **配置缺失即跳过**：未设置 `command` 时打印警告并跳过，不会静默失败或误执行。
+- **网页设置卡片**：在「设置 → 插件 → 插件配置」页提供一张可展开卡片，就地编辑 `enabled` / `shell` / `command`，无需手改 settings.yaml。
 
 ## 挂载方式
 
-本插件是挂在本机 web profile 用户层的本地插件，不发布到 npm：
+本插件是「双面」插件：host 半侧（`index.js`，启动时执行命令）+ 浏览器半侧（`client.js`，在「设置 → 插件 → 插件配置」页注册设置卡片）。它挂在本机 web profile 用户层，不发布到 npm。
 
 1. 将插件目录放到 profile 下：
 
@@ -27,20 +28,32 @@
    C:\Users\<你>\.dsh\profiles\web\plugins\dsh-startup-command\
    ```
 
-2. 在 `C:\Users\<你>\.dsh\profiles\web\cordis.patch.yml` 中添加 `insert` 条目（只负责挂载，命令配置在 settings.yaml）：
+2. 在 `C:\Users\<你>\.dsh\profiles\web\package.json` 的 `dependencies` 中以 `link:` 依赖软链到该目录（这样 host 与浏览器两个半侧都能被模块系统按包名发现）：
+
+   ```json
+   {
+     "dependencies": {
+       "@kagurazakayashi/dsh-startup-command": "link:plugins/dsh-startup-command"
+     }
+   }
+   ```
+
+   然后运行 `pnpm install` 生成软链；或手动创建
+   `node_modules/@kagurazakayashi/dsh-startup-command` 指向
+   `../../plugins/dsh-startup-command` 的 junction/symlink。
+
+3. 在 `C:\Users\<你>\.dsh\profiles\web\cordis.patch.yml` 中添加 `insert` 条目（只负责挂载，命令配置在 settings.yaml）：
 
    ```yaml
    - insert:
        - id: dsh-startup-command
-         # 注意：Node ESM 不支持「目录导入」（ERR_UNSUPPORTED_DIR_IMPORT），
-         # 必须指向入口文件本身（该目录 package.json 已声明 type: module）。
-         name: ./plugins/dsh-startup-command/index.js
+         name: '@kagurazakayashi/dsh-startup-command'
          inject: [webServer]
    ```
 
-3. 在 `C:\Users\<你>\.dsh\settings.yaml` 中添加 `dsh-startup-command` 命名空间（见下节）。
+4. 在 `C:\Users\<你>\.dsh\settings.yaml` 中添加 `dsh-startup-command` 命名空间（见下节）。
 
-4. 重启 `dsh web` 生效。
+5. 重启 `dsh web` 生效。重启后，「设置 → 插件 → 插件配置」页会出现本插件的设置卡片，可就地编辑 `enabled` / `shell` / `command`。
 
 ## 配置详解
 

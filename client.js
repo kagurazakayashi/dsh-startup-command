@@ -1,0 +1,502 @@
+window.__ModuleLoader__.load({
+	id: "@kagurazakayashi/dsh-startup-command",
+	factory: (require) => {
+		"use strict";
+
+		// =====================================================================
+		// dsh-startup-command（瀏覽器端）
+		//
+		// 在官方「設定 → 外掛 → 外掛組態」分頁（settings.plugin.item 席位）註冊
+		// 一張可展開卡片，就地編輯本外掛在 settings.yaml 的
+		// dsh-startup-command 命名空間（enabled / shell / command）。
+		//
+		// 與官方 dsh-client-ui-settings-plugins 的卡片走同一機制：
+		//   1. 本 bundle 只 require("react")（平台 seed 字），slots / locale /
+		//      settingsScope 三個服務透過 cordis 的 inject 宣告取得，不跨外掛
+		//      做值匯入（遵守 bundle 純淨度門禁）。
+		//   2. apply(ctx) 用 ctx.settingsScope.bind({ namespace }) 綁定
+		//      dsh-startup-command 命名空間，再把 scope 注入卡片元件。
+		//   3. 卡片以 React.useSyncExternalStore 讀取 scope 快照，暫存使用者的
+		//      草稿，按下「儲存」才把草稿寫回 host（revision 設柵由 scope 負責）。
+		// =====================================================================
+
+		var React = require("react");
+
+		/** 穩定外掛名稱（字典命名空間與 settings 命名空間同名）。 */
+		var NS = "dsh-startup-command";
+
+		/** 本外掛需要的瀏覽器服務（slots：註冊卡片；locale：多語；settingsScope：綁定命名空間）。 */
+		var inject = ["slots", "locale", "settingsScope"];
+
+		// ---------- 多語文案 ----------
+		var zh = {
+			title: "启动命令",
+			description: "dsh web 启动成功后要执行的自定义命令。",
+			enabledLabel: "启用",
+			enabledHint: "关闭后，dsh web 启动成功时不会执行任何命令。",
+			shellLabel: "经系统 shell 执行",
+			shellHint: "开启后，命令会交给系统 shell 执行（默认关闭，直接以参数数组启动，路径含空格更安全）。",
+			commandLabel: "命令",
+			commandHint: "命令中的 {url} 会在执行前替换为实际 GUI 地址。",
+			commandArrayHint: "当前命令为多条（数组）形式，请在 settings.yaml 中编辑，此处不提供编辑以免丢失。",
+			overridden: "已覆盖",
+			reset: "恢复默认",
+			inherit: "继承",
+			on: "开",
+			off: "关",
+			save: "保存",
+			saving: "保存中…",
+			discard: "放弃修改",
+			unsaved: "未保存",
+			saveFailed: "本部署没有接受这些值，已保留供你修改。",
+			readOnly: "本部署的设置为只读。",
+			expand: "展开设置",
+			collapse: "收起设置",
+			notExposed: "本部署没有开放该插件的设置。"
+		};
+
+		var en = {
+			title: "Startup command",
+			description: "Commands to run after dsh web finishes booting.",
+			enabledLabel: "Enabled",
+			enabledHint: "When off, no command runs after dsh web boots.",
+			shellLabel: "Run through system shell",
+			shellHint: "When on, the command runs through the system shell (off by default; plain argv spawning is safer for paths with spaces).",
+			commandLabel: "Command",
+			commandHint: "{url} in the command is replaced with the actual GUI address before it runs.",
+			commandArrayHint: "The command is configured as a list; edit it in settings.yaml (editing here is disabled to avoid data loss).",
+			overridden: "Overridden",
+			reset: "Reset to default",
+			inherit: "Inherit",
+			on: "On",
+			off: "Off",
+			save: "Save",
+			saving: "Saving…",
+			discard: "Discard",
+			unsaved: "Unsaved",
+			saveFailed: "The deployment did not accept these values; they were left for you to correct.",
+			readOnly: "This deployment stores settings read-only.",
+			expand: "Show settings",
+			collapse: "Hide settings",
+			notExposed: "This deployment does not expose this plugin's settings."
+		};
+
+		// ---------- 欄位規格 ----------
+		// format：把 host 解析值轉成草稿文字；parse：把草稿文字轉成寫入（clear 或 set）。
+		// boolean 欄位以 ""（繼承）/ "true" / "false" 三態編輯。
+		function booleanSpec(field) {
+			return {
+				field: field,
+				format: function (value) {
+					return typeof value === "boolean" ? String(value) : "";
+				},
+				parse: function (text) {
+					var trimmed = text.trim();
+					if (trimmed === "") return { kind: "clear" };
+					if (trimmed === "true") return { kind: "set", value: true };
+					if (trimmed === "false") return { kind: "set", value: false };
+					return undefined;
+				}
+			};
+		}
+
+		/** command 為自由文字（單條命令字串）；空字串視為清除（恢復繼承）。 */
+		var COMMAND_SPEC = {
+			field: "command",
+			format: function (value) {
+				return typeof value === "string" ? value : "";
+			},
+			parse: function (text) {
+				var trimmed = text.trim();
+				return trimmed === "" ? { kind: "clear" } : { kind: "set", value: trimmed };
+			}
+		};
+
+		var SPECS = {
+			enabled: booleanSpec("enabled"),
+			shell: booleanSpec("shell"),
+			command: COMMAND_SPEC
+		};
+
+		// ---------- 樣式 ----------
+		var CSS_TAG_ID = "@kagurazakayashi/dsh-startup-command/settings-card.css";
+		var STYLE_SELECTOR = "style[data-plugin-css=" + JSON.stringify(CSS_TAG_ID) + "]";
+		var css = [
+			".dshscc-card{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);border-radius:12px;list-style:none;transition:border-color .16s,background .16s;}",
+			".dshscc-card:hover{border-color:var(--dsw-alias-label-dimmed);}",
+			".dshscc-cardOpen{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-label-dimmed);}",
+			".dshscc-header{appearance:none;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:12px;align-items:center;gap:12px;padding:14px 16px;display:flex;}",
+			".dshscc-header:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}",
+			".dshscc-headText{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex;}",
+			".dshscc-name{color:var(--dsw-alias-label-primary);font-size:15px;font-weight:600;line-height:1.4;}",
+			".dshscc-description{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5;}",
+			".dshscc-chevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s;}",
+			".dshscc-chevronOpen{transform:rotate(180deg);}",
+			".dshscc-body{border-top:1px solid var(--dsw-alias-border-l2);margin:0 16px;padding-bottom:8px;}",
+			".dshscc-readOnly{color:var(--dsw-alias-label-tertiary);margin:12px 0 0;font-size:12px;line-height:1.5;}",
+			".dshscc-notExposed{color:var(--dsw-alias-label-tertiary);margin:12px 0 0;font-size:12px;line-height:1.5;}",
+			".dshscc-pending{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px;}",
+			".dshscc-field{flex-direction:column;gap:6px;padding:12px 0;display:flex;}",
+			".dshscc-field+.dshscc-field{border-top:1px solid var(--dsw-alias-border-l2);}",
+			".dshscc-head{align-items:center;gap:8px;display:flex;}",
+			".dshscc-label{min-width:0;color:var(--dsw-alias-label-primary);flex:1;font-size:13px;font-weight:500;line-height:1.5;}",
+			".dshscc-badges{align-items:center;gap:8px;display:inline-flex;}",
+			".dshscc-badge{white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px;}",
+			".dshscc-reset{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;padding:0;font-size:12px;line-height:1.5;}",
+			".dshscc-reset:hover:not(:disabled){color:var(--dsw-alias-label-primary);}",
+			".dshscc-reset:disabled{cursor:default;}",
+			".dshscc-input,.dshscc-select{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);height:34px;font:inherit;color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 12px;font-size:13px;line-height:1.5;box-sizing:border-box;width:100%;}",
+			".dshscc-input:focus-visible,.dshscc-select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:none;}",
+			".dshscc-input:disabled,.dshscc-select:disabled{color:var(--dsw-alias-label-tertiary);cursor:default;}",
+			".dshscc-inputInvalid{border-color:var(--dsw-alias-label-error);}",
+			".dshscc-hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:1.5;}",
+			".dshscc-invalid{color:var(--dsw-alias-label-error);margin:0;font-size:12px;line-height:1.5;}",
+			".dshscc-footer{border-top:1px solid var(--dsw-alias-border-l2);justify-content:flex-end;align-items:center;gap:8px;padding:12px 0 4px;display:flex;}",
+			".dshscc-failed{min-width:0;color:var(--dsw-alias-label-error);flex:1;margin:0;font-size:12px;line-height:1.5;}",
+			".dshscc-discard,.dshscc-save{appearance:none;font:inherit;cursor:pointer;border:1px solid #0000;border-radius:8px;padding:5px 14px;font-size:13px;line-height:1.5;}",
+			".dshscc-discard{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);background:0 0;}",
+			".dshscc-discard:disabled{cursor:default;opacity:.5;}",
+			".dshscc-save{background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-on-brand);}",
+			".dshscc-save:disabled{cursor:default;opacity:.5;}"
+		].join("\n");
+
+		function mountStyle() {
+			if (typeof document === "undefined") return;
+			if (document.querySelector(STYLE_SELECTOR) !== null) return;
+			var tag = document.createElement("style");
+			tag.dataset.plugin = "@kagurazakayashi/dsh-startup-command";
+			tag.dataset.pluginCss = CSS_TAG_ID;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+
+		// ---------- 欄位子元件 ----------
+
+		/** 布林欄位：繼承 / 開 / 關 三態下拉。 */
+		function BooleanField(props) {
+			var spec = props.spec;
+			var draft = props.draft; // undefined 表示未編輯
+			var text = draft !== undefined ? draft.text : spec.format(props.value);
+			var invalid = draft !== undefined && !draft.clear && spec.parse(draft.text) === undefined;
+			return React.createElement("div", { className: "dshscc-field" },
+				React.createElement("div", { className: "dshscc-head" },
+					React.createElement("label", { className: "dshscc-label", htmlFor: props.id }, props.label),
+					props.overridden ? React.createElement("span", { className: "dshscc-badges" },
+						React.createElement("span", { className: "dshscc-badge" }, props.overriddenLabel),
+						React.createElement("button", { type: "button", className: "dshscc-reset", disabled: props.disabled, onClick: props.onReset }, props.resetLabel)
+					) : null
+				),
+				React.createElement("select", {
+					id: props.id,
+					className: invalid ? "dshscc-select dshscc-inputInvalid" : "dshscc-select",
+					value: text,
+					disabled: props.disabled,
+					onChange: function (event) { props.onEdit(event.target.value); }
+				},
+					React.createElement("option", { value: "" }, props.inheritLabel),
+					React.createElement("option", { value: "true" }, props.onLabel),
+					React.createElement("option", { value: "false" }, props.offLabel)
+				),
+				React.createElement("p", { className: invalid ? "dshscc-invalid" : "dshscc-hint" }, invalid ? props.invalidLabel : props.hint)
+			);
+		}
+
+		/** 自由文字欄位。 */
+		function TextField(props) {
+			var spec = props.spec;
+			var draft = props.draft;
+			var text = draft !== undefined ? draft.text : spec.format(props.value);
+			var invalid = draft !== undefined && !draft.clear && spec.parse(draft.text) === undefined;
+			return React.createElement("div", { className: "dshscc-field" },
+				React.createElement("div", { className: "dshscc-head" },
+					React.createElement("label", { className: "dshscc-label", htmlFor: props.id }, props.label),
+					props.overridden ? React.createElement("span", { className: "dshscc-badges" },
+						React.createElement("span", { className: "dshscc-badge" }, props.overriddenLabel),
+						React.createElement("button", { type: "button", className: "dshscc-reset", disabled: props.disabled, onClick: props.onReset }, props.resetLabel)
+					) : null
+				),
+				React.createElement("input", {
+					id: props.id,
+					className: invalid ? "dshscc-input dshscc-inputInvalid" : "dshscc-input",
+					type: "text",
+					value: text,
+					disabled: props.disabled,
+					onChange: function (event) { props.onEdit(event.target.value); }
+				}),
+				React.createElement("p", { className: invalid ? "dshscc-invalid" : "dshscc-hint" }, invalid ? props.invalidLabel : props.hint)
+			);
+		}
+
+		// ---------- 卡片元件 ----------
+
+		/** 判斷某欄位是否落在使用者層（已覆蓋）。 */
+		function stored(user, field) {
+			return user !== undefined && Object.prototype.hasOwnProperty.call(user, field);
+		}
+
+		/** 計算某欄位目前的覆蓋狀態（草稿優先）。 */
+		function fieldOverridden(spec, draft, user, field) {
+			if (draft !== undefined) {
+				if (draft.clear) return false;
+				var write = spec.parse(draft.text);
+				return write !== undefined && write.kind === "set";
+			}
+			return stored(user, field);
+		}
+
+		function StartupCommandCard(props) {
+			var t = props.t;
+			var scope = props.scope;
+
+			var subscribe = React.useCallback(function (onChange) {
+				return scope.subscribe(onChange);
+			}, [scope]);
+			var snapshot = React.useSyncExternalStore(subscribe, function () { return scope.getSnapshot(); });
+
+			var open = React.useState(true);
+			var isOpen = open[0];
+			var setOpen = open[1];
+
+			var draftsState = React.useState({});
+			var drafts = draftsState[0];
+			var setDrafts = draftsState[1];
+
+			var savingState = React.useState(false);
+			var saving = savingState[0];
+			var setSaving = savingState[1];
+
+			var failedState = React.useState(false);
+			var failed = failedState[0];
+			var setFailed = failedState[1];
+
+			var status = snapshot.status;
+			// 載入中（或尚未開始讀取）時不渲染，避免閃爍。
+			if (status === "loading" || status === "idle") return null;
+
+			var exposed = status === "ready";
+			var writable = snapshot.writable === true;
+			var value = snapshot.value || {};
+			var base = snapshot.base || {};
+			var user = snapshot.user;
+
+			var fields = ["enabled", "shell", "command"];
+			var hasDraft = fields.some(function (field) { return drafts[field] !== undefined; });
+			var hasInvalid = fields.some(function (field) {
+				var draft = drafts[field];
+				if (draft === undefined || draft.clear) return false;
+				return SPECS[field].parse(draft.text) === undefined;
+			});
+
+			var title = t("title");
+			var description = t("description");
+			var blocked = !hasDraft || hasInvalid || saving;
+
+			function edit(field, text) {
+				setFailed(false);
+				setDrafts(function (prev) {
+					var next = {};
+					for (var k in prev) next[k] = prev[k];
+					next[field] = { text: text, clear: false };
+					return next;
+				});
+			}
+
+			function resetField(field) {
+				setFailed(false);
+				setDrafts(function (prev) {
+					var next = {};
+					for (var k in prev) next[k] = prev[k];
+					next[field] = { text: SPECS[field].format(base[field]), clear: true };
+					return next;
+				});
+			}
+
+			function discard() {
+				setDrafts({});
+				setFailed(false);
+			}
+
+			function save() {
+				if (blocked) return;
+				// 依草稿建立寫入計畫；沒有實際寫入（例如僅對未覆蓋欄位做 reset）時直接清空草稿。
+				var writes = [];
+				for (var field of fields) {
+					var draft = drafts[field];
+					if (draft === undefined) continue;
+					var spec = SPECS[field];
+					if (draft.clear) {
+						if (stored(user, field)) writes.push({ field: field, op: "unset" });
+						continue;
+					}
+					if (draft.text === spec.format(value[field])) continue;
+					var write = spec.parse(draft.text);
+					if (write === undefined) continue;
+					if (write.kind === "clear") writes.push({ field: field, op: "unset" });
+					else writes.push({ field: field, op: "set", value: write.value });
+				}
+				if (writes.length === 0) {
+					setDrafts({});
+					setFailed(false);
+					return;
+				}
+				setSaving(true);
+				setFailed(false);
+				var landed = true;
+				var chain = Promise.resolve();
+				for (var i = 0; i < writes.length; i++) {
+					(function (write) {
+						chain = chain.then(function () {
+							if (write.op === "set") return scope.set(write.field, write.value);
+							return scope.unset(write.field);
+						}).catch(function () { landed = false; });
+					})(writes[i]);
+				}
+				chain.then(function () {
+					setSaving(false);
+					if (landed) {
+						setDrafts({});
+						setFailed(false);
+					} else {
+						setFailed(true);
+					}
+				});
+			}
+
+			var headerChildren = [
+				React.createElement("span", { className: "dshscc-headText", key: "headText" },
+					React.createElement("span", { className: "dshscc-name", title: title }, title),
+					React.createElement("span", { className: "dshscc-description", title: description }, description)
+				),
+				hasDraft ? React.createElement("span", { className: "dshscc-pending", key: "pending" }, t("unsaved")) : null,
+				React.createElement("svg", {
+					key: "chevron",
+					width: "14",
+					height: "14",
+					viewBox: "0 0 14 14",
+					fill: "none",
+					xmlns: "http://www.w3.org/2000/svg",
+					className: isOpen ? "dshscc-chevron dshscc-chevronOpen" : "dshscc-chevron",
+					"aria-hidden": true
+				}, React.createElement("path", {
+					d: "M11.8486 5.5L11.4238 5.92383L8.69727 8.65137C8.44157 8.90706 8.21562 9.13382 8.01172 9.29785C7.79912 9.46883 7.55595 9.61756 7.25 9.66602C7.08435 9.69222 6.91565 9.69222 6.75 9.66602C6.44405 9.61756 6.20088 9.46883 5.98828 9.29785C5.78438 9.13382 5.55843 8.90706 5.30273 8.65137L2.57617 5.92383L2.15137 5.5L3 4.65137L3.42383 5.07617L6.15137 7.80273C6.42595 8.07732 6.59876 8.24849 6.74023 8.3623C6.87291 8.46904 6.92272 8.47813 6.9375 8.48047C6.97895 8.48703 7.02105 8.48703 7.0625 8.48047C7.07728 8.47813 7.12709 8.46904 7.25977 8.3623C7.40124 8.24849 7.57405 8.07732 7.84863 7.80273L10.5762 5.07617L11 4.65137L11.8486 5.5Z",
+					fill: "currentColor"
+				}))
+			];
+
+			var body = null;
+			if (!exposed) {
+				body = React.createElement("div", { className: "dshscc-body" },
+					React.createElement("p", { className: "dshscc-notExposed", role: "status" }, t("notExposed"))
+				);
+			} else {
+				var commandIsArray = Array.isArray(value.command);
+				var disabled = !writable;
+				body = React.createElement("div", { className: "dshscc-body" },
+					!writable ? React.createElement("p", { className: "dshscc-readOnly", role: "status" }, t("readOnly")) : null,
+					React.createElement(BooleanField, {
+						id: "dsh-startup-command-enabled",
+						spec: SPECS.enabled,
+						label: t("enabledLabel"),
+						hint: t("enabledHint"),
+						invalidLabel: "",
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						inheritLabel: t("inherit"),
+						onLabel: t("on"),
+						offLabel: t("off"),
+						value: value.enabled,
+						draft: drafts.enabled,
+						overridden: fieldOverridden(SPECS.enabled, drafts.enabled, user, "enabled"),
+						disabled: disabled,
+						onEdit: function (text) { edit("enabled", text); },
+						onReset: function () { resetField("enabled"); }
+					}),
+					React.createElement(BooleanField, {
+						id: "dsh-startup-command-shell",
+						spec: SPECS.shell,
+						label: t("shellLabel"),
+						hint: t("shellHint"),
+						invalidLabel: "",
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						inheritLabel: t("inherit"),
+						onLabel: t("on"),
+						offLabel: t("off"),
+						value: value.shell,
+						draft: drafts.shell,
+						overridden: fieldOverridden(SPECS.shell, drafts.shell, user, "shell"),
+						disabled: disabled,
+						onEdit: function (text) { edit("shell", text); },
+						onReset: function () { resetField("shell"); }
+					}),
+					React.createElement(TextField, {
+						id: "dsh-startup-command-command",
+						spec: SPECS.command,
+						label: t("commandLabel"),
+						hint: commandIsArray ? t("commandArrayHint") : t("commandHint"),
+						invalidLabel: "",
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						value: value.command,
+						draft: drafts.command,
+						overridden: fieldOverridden(SPECS.command, drafts.command, user, "command"),
+						disabled: disabled || commandIsArray,
+						onEdit: function (text) { edit("command", text); },
+						onReset: function () { resetField("command"); }
+					}),
+					React.createElement("div", { className: "dshscc-footer" },
+						failed ? React.createElement("p", { className: "dshscc-failed", role: "status" }, t("saveFailed")) : null,
+						React.createElement("button", {
+							type: "button",
+							className: "dshscc-discard",
+							disabled: !hasDraft || saving,
+							onClick: discard
+						}, t("discard")),
+						React.createElement("button", {
+							type: "button",
+							className: "dshscc-save",
+							disabled: blocked,
+							onClick: save
+						}, t(saving ? "saving" : "save"))
+					)
+				);
+			}
+
+			return React.createElement("li", { className: isOpen ? "dshscc-card dshscc-cardOpen" : "dshscc-card" },
+				React.createElement("button", {
+					type: "button",
+					className: "dshscc-header",
+					"aria-expanded": isOpen,
+					"aria-label": (isOpen ? t("collapse") : t("expand")) + ": " + title,
+					onClick: function () { setOpen(!isOpen); }
+				}, headerChildren),
+				isOpen ? body : null
+			);
+		}
+
+		// ---------- Cordis apply ----------
+		function apply(ctx) {
+			mountStyle();
+
+			// 註冊多語字典（回傳的 disposer 交由 ctx.effect 在卸載時清理）。
+			ctx.effect(function () {
+				return ctx.locale.register(NS, { zh: zh, en: en });
+			}, "dsh-startup-command: dictionaries");
+
+			// 綁定本外掛的 settings 命名空間。
+			var scope = ctx.settingsScope.bind({ namespace: NS });
+
+			// 在官方「外掛組態」分頁註冊卡片（settings.plugin.item，鍵為命名空間）。
+			ctx.slots.inject("settings.plugin.item", function () {
+				return ctx.slots.register({
+					name: "settings.plugin.item",
+					key: NS,
+					locale: NS,
+					inject: function () { return { scope: scope }; }
+				}, StartupCommandCard);
+			});
+		}
+
+		return { apply: apply, inject: inject };
+	}
+});

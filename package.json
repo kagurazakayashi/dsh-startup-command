@@ -28,6 +28,7 @@
   "main": "index.js",
   "files": [
     "index.js",
+    "client.js",
     "cordis.patch.yml",
     "README.md",
     "README.zh-CN.md",
@@ -35,12 +36,21 @@
   ],
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
     }
   },
   "peerDependencies": {

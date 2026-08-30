@@ -16,10 +16,11 @@ The command is fully driven by the settings file (the `dsh-startup-command` name
 - **Does not block dsh**: the child process is spawned `detached` and `unref()`ed, so it runs independently and never holds up dsh shutdown.
 - **Toggle and mode**: `enabled: false` temporarily disables the plugin; `shell: true` runs the command through the system shell (default off — spawning with a plain argument array is safe even for paths with spaces).
 - **Skips when unconfigured**: if `command` is not set, it prints a warning and skips — no silent failure, no accidental execution.
+- **Web settings card**: an expandable card under **Settings → Plugins → Plugin configuration** edits `enabled`, `shell`, and `command` in place — no need to edit `settings.yaml` by hand.
 
 ## Installation
 
-This plugin is a local plugin mounted in the user patch layer of a local web profile; it is not published to npm:
+This plugin is dual-face: a host half (`index.js`, runs the command at startup) and a browser half (`client.js`, registers a settings card under **Settings → Plugins → Plugin configuration**). It is mounted in the user layer of a local web profile and is not published to npm.
 
 1. Place the plugin directory under the profile:
 
@@ -27,21 +28,32 @@ This plugin is a local plugin mounted in the user patch layer of a local web pro
    C:\Users\<you>\.dsh\profiles\web\plugins\dsh-startup-command\
    ```
 
-2. Add an `insert` entry to `C:\Users\<you>\.dsh\profiles\web\cordis.patch.yml` (mounting only; the command lives in `settings.yaml`):
+2. Add a `link:` dependency to `C:\Users\<you>\.dsh\profiles\web\package.json` so both halves are discoverable by package name:
+
+   ```json
+   {
+     "dependencies": {
+       "@kagurazakayashi/dsh-startup-command": "link:plugins/dsh-startup-command"
+     }
+   }
+   ```
+
+   Then run `pnpm install` to materialize the link — or create a
+   `node_modules/@kagurazakayashi/dsh-startup-command` junction/symlink pointing
+   at `../../plugins/dsh-startup-command` manually.
+
+3. Add an `insert` entry to `C:\Users\<you>\.dsh\profiles\web\cordis.patch.yml` (mounting only; the command lives in `settings.yaml`):
 
    ```yaml
    - insert:
        - id: dsh-startup-command
-         # Note: Node ESM does not support directory imports
-         # (ERR_UNSUPPORTED_DIR_IMPORT), so point at the entry file itself
-         # (the directory's package.json declares "type": "module").
-         name: ./plugins/dsh-startup-command/index.js
+         name: '@kagurazakayashi/dsh-startup-command'
          inject: [webServer]
    ```
 
-3. Add the `dsh-startup-command` namespace to `C:\Users\<you>\.dsh\settings.yaml` (see the next section).
+4. Add the `dsh-startup-command` namespace to `C:\Users\<you>\.dsh\settings.yaml` (see the next section).
 
-4. Restart `dsh web` for the change to take effect.
+5. Restart `dsh web` for the change to take effect. After the restart, a settings card for this plugin appears under **Settings → Plugins → Plugin configuration**, where `enabled`, `shell`, and `command` can be edited in place.
 
 ## Configuration
 

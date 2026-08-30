@@ -1,21 +1,21 @@
 /**
- * startup-command — 在 dsh web 啟動成功（webServer 監聽啟動、Loader 樹穩定）後，
+ * dsh-startup-command — 在 dsh web 啟動成功（webServer 監聽啟動、Loader 樹穩定）後，
  * 依使用者在 settings.yaml 設定的自訂命令執行指定動作（例如開啟指定瀏覽器）。
  *
  * 這是掛在 web profile 使用者層的本地 host 插件：cordis.patch.yml 以
- * 相對路徑 name（./plugins/startup-command/index.js）引用本目錄，Loader 依
+ * 相對路徑 name（./plugins/dsh-startup-command/index.js）引用本目錄，Loader 依
  * baseUrl（profile 目錄）解析並以 ESM 匯入。
  *
  * 觸發時機與內建 web-app 的 openBrowser 相同：等 Loader 樹全部 settle
  * 且 webServer 服務存在之後才執行，因此 URL 一定是「監聽啟動後」的
  * 實際位址（含 --port 0 由作業系統分配的情形）。
  *
- * 設定位置：settings.yaml 的 startup-command 命名空間（本插件透過
+ * 設定位置：settings.yaml 的 dsh-startup-command 命名空間（本插件透過
  * @deepseek-ai/dsh-settings 註冊 schema，schema 預設值在未配置時生效）。
  * command 可寫單條字串，或寫成陣列表示多條命令；多條命令會依序執行，
  * 前一條退出後才啟動下一條：
  *
- *   startup-command:
+ *   dsh-startup-command:
  *     enabled: true
  *     command:
  *       - '"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="D:\dsh-chrome-profile" --app={url}'
@@ -27,13 +27,13 @@ import { spawn } from "node:child_process";
 import z from "@deepseek-ai/schemastery";
 
 /** 穩定插件名稱（顯示於 Loader 日誌與外掛清單）。 */
-export const name = "startup-command";
+export const name = "dsh-startup-command";
 
 /** 宣告 webServer 為硬依賴，確保觸發時服務已就緒。 */
 export const inject = ["webServer"];
 
 /** settings.yaml 中的設定命名空間（kebab-case，與插件名一致）。 */
-const SETTINGS_NS = "startup-command";
+const SETTINGS_NS = "dsh-startup-command";
 
 /**
  * 設定命名空間的 schema：command 接受單條字串或字串陣列（多條命令），
@@ -117,7 +117,7 @@ function runOne(argv, shell) {
 			shell,
 			windowsHide: true
 		});
-		console.log(`startup-command: ${argv.join(" ")}`);
+		console.log(`dsh-startup-command: ${argv.join(" ")}`);
 		// close（正常退出）與 error（啟動失敗）都結束等待；Promise 只 settle 一次。
 		child.once("close", () => resolve());
 		child.once("error", () => resolve());
@@ -140,7 +140,7 @@ async function runSequence(commands, shell) {
  * @param {object} ctx - cordis 插件上下文。
  */
 export function apply(ctx) {
-	// 註冊設定命名空間：settings.yaml 的 startup-command 頂層鍵由此 schema
+	// 註冊設定命名空間：settings.yaml 的 dsh-startup-command 頂層鍵由此 schema
 	// 驗證與解析（schema 預設值 + 使用者層覆蓋）。
 	ctx.inject(["settings"], (sctx) => {
 		sctx.settings.register(SETTINGS_NS, SettingsSchema);
@@ -157,7 +157,7 @@ export function apply(ctx) {
 		if (settings.enabled === false) return;
 		const commands = resolveCommands(settings.command, url);
 		if (commands === null) {
-			console.warn("startup-command: 未設定 command，略過");
+			console.warn("dsh-startup-command: 未設定 command，略過");
 			return;
 		}
 		runSequence(commands, settings.shell === true).catch(() => {});
