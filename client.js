@@ -9,6 +9,8 @@ window.__ModuleLoader__.load({
 		// 在官方「設定 → 外掛 → 外掛組態」分頁（settings.plugin.item 席位）註冊
 		// 一張可展開卡片，就地編輯本外掛在 settings.yaml 的
 		// dsh-startup-command 命名空間（enabled / shell / command）。
+		// command 以多列清單編輯：可新增 / 刪除命令、上下移調整執行順序，
+		// 儲存時單條寫字串、多條寫陣列（與 host 端 schema 的兩種形式相容）。
 		//
 		// 與官方 dsh-client-ui-settings-plugins 的卡片走同一機制：
 		//   1. 本 bundle 只 require("react")（平台 seed 字），slots / locale /
@@ -37,9 +39,13 @@ window.__ModuleLoader__.load({
 			shellLabel: "经系统 shell 执行",
 			shellHint: "开启后，命令会交给系统 shell 执行（默认关闭，直接以参数数组启动，路径含空格更安全）。",
 			commandLabel: "命令",
-			commandHint: "命令中的 {url} 会在执行前替换为实际 GUI 地址。",
-			commandArrayHint: "当前命令为多条（数组）形式，请在 settings.yaml 中编辑，此处不提供编辑以免丢失。",
-			overridden: "已覆盖",
+			commandHint: "每条命令按顺序依次执行（前一条退出后才执行下一条）。{url} 会在执行前替换为实际 GUI 地址；空白行保存时会自动移除。",
+			commandAdd: "添加命令",
+			commandRemove: "删除",
+			commandMoveUp: "上移",
+			commandMoveDown: "下移",
+			commandPlaceholder: "输入命令…",
+						overridden: "已覆盖",
 			reset: "恢复默认",
 			inherit: "继承",
 			on: "开",
@@ -63,9 +69,13 @@ window.__ModuleLoader__.load({
 			shellLabel: "Run through system shell",
 			shellHint: "When on, the command runs through the system shell (off by default; plain argv spawning is safer for paths with spaces).",
 			commandLabel: "Command",
-			commandHint: "{url} in the command is replaced with the actual GUI address before it runs.",
-			commandArrayHint: "The command is configured as a list; edit it in settings.yaml (editing here is disabled to avoid data loss).",
-			overridden: "Overridden",
+			commandHint: "Commands run in order (the next one starts only after the previous one exits). {url} is replaced with the actual GUI address; blank rows are dropped on save.",
+			commandAdd: "Add command",
+			commandRemove: "Remove",
+			commandMoveUp: "Move up",
+			commandMoveDown: "Move down",
+			commandPlaceholder: "Enter a command…",
+						overridden: "Overridden",
 			reset: "Reset to default",
 			inherit: "Inherit",
 			on: "On",
@@ -100,22 +110,61 @@ window.__ModuleLoader__.load({
 			};
 		}
 
-		/** command 為自由文字（單條命令字串）；空字串視為清除（恢復繼承）。 */
-		var COMMAND_SPEC = {
-			field: "command",
-			format: function (value) {
-				return typeof value === "string" ? value : "";
-			},
-			parse: function (text) {
-				var trimmed = text.trim();
-				return trimmed === "" ? { kind: "clear" } : { kind: "set", value: trimmed };
+		/** 把 command 的解析值（string | string[] | undefined）正規化成逐列編輯用的字串陣列。 */
+		function commandItems(value) {
+			if (Array.isArray(value)) return value.slice();
+			if (typeof value === "string") return [value];
+			return [];
+		}
+
+		/** 逐列去除首尾空白並丟棄空白列（空白列不構成命令）。 */
+		function commandTrimmed(items) {
+			var out = [];
+			for (var i = 0; i < items.length; i++) {
+				var trimmed = items[i].trim();
+				if (trimmed !== "") out.push(trimmed);
 			}
-		};
+			return out;
+		}
+
+		/**
+		 * 計算 command 草稿的寫入計畫：set（單條寫字串、多條寫陣列）、
+		 * unset（全空白等同恢復繼承預設 []）或 null（與現值相同，不需寫入）。
+		 * @param {{clear: boolean, items: string[]}} draft - command 欄位草稿（items 為逐列原始文字）。
+		 * @param {unknown} current - 目前解析值（string | string[]）。
+		 * @param {unknown} user - 使用者層原始值（判斷是否已覆蓋）。
+		 * @returns {{op: "set", value: unknown} | {op: "unset"} | null}
+		 */
+		function commandDraftWrite(draft, current, user) {
+			if (draft.clear) {
+				return stored(user, "command") ? { op: "unset" } : null;
+			}
+			var trimmed = commandTrimmed(draft.items);
+			var currentTrimmed = commandTrimmed(commandItems(current));
+			if (trimmed.length === 0) {
+				// 全空白列等同恢復預設（空陣列）：只有已覆蓋才需要 unset。
+				return currentTrimmed.length === 0 ? null : (stored(user, "command") ? { op: "unset" } : null);
+			}
+			// 單條命令維持字串形式（與既有設定一致），多條才寫陣列。
+			var target = trimmed.length === 1 ? trimmed[0] : trimmed;
+			if (trimmed.length === currentTrimmed.length && trimmed.every(function (s, i) { return s === currentTrimmed[i]; })) {
+				return null;
+			}
+			return { op: "set", value: target };
+		}
+
+		/** 判斷 command 欄位是否處於「已覆蓋」狀態（草稿優先；全空白草稿視為未覆蓋）。 */
+		function commandOverridden(draft, user) {
+			if (draft !== undefined) {
+				if (draft.clear) return false;
+				return commandTrimmed(draft.items).length > 0;
+			}
+			return stored(user, "command");
+		}
 
 		var SPECS = {
 			enabled: booleanSpec("enabled"),
-			shell: booleanSpec("shell"),
-			command: COMMAND_SPEC
+			shell: booleanSpec("shell")
 		};
 
 		// ---------- 樣式 ----------
@@ -150,6 +199,18 @@ window.__ModuleLoader__.load({
 			".dshscc-input:disabled,.dshscc-select:disabled{color:var(--dsw-alias-label-tertiary);cursor:default;}",
 			".dshscc-inputInvalid{border-color:var(--dsw-alias-label-error);}",
 			".dshscc-hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:1.5;}",
+			".dshscc-commandList{flex-direction:column;gap:8px;display:flex;}",
+			".dshscc-commandRow{align-items:center;gap:8px;display:flex;}",
+			".dshscc-commandIndex{flex:none;min-width:16px;text-align:right;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:1.5;font-variant-numeric:tabular-nums;}",
+			".dshscc-commandInput{flex:1;min-width:0;}",
+			".dshscc-commandBtn{flex:none;width:26px;height:26px;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:0 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:1;cursor:pointer;}",
+			".dshscc-commandBtn:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed);color:var(--dsw-alias-label-primary);}",
+			".dshscc-commandBtn:disabled{opacity:.4;cursor:default;}",
+			".dshscc-commandBtn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px;}",
+			".dshscc-commandAdd{width:100%;margin-top:2px;padding:5px 12px;border:1px dashed var(--dsw-alias-border-l2);border-radius:8px;background:0 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:1.5;cursor:pointer;}",
+			".dshscc-commandAdd:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed);color:var(--dsw-alias-label-primary);}",
+			".dshscc-commandAdd:disabled{opacity:.5;cursor:default;}",
+			".dshscc-commandAdd:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px;}",
 			".dshscc-invalid{color:var(--dsw-alias-label-error);margin:0;font-size:12px;line-height:1.5;}",
 			".dshscc-footer{border-top:1px solid var(--dsw-alias-border-l2);justify-content:flex-end;align-items:center;gap:8px;padding:12px 0 4px;display:flex;}",
 			".dshscc-failed{min-width:0;color:var(--dsw-alias-label-error);flex:1;margin:0;font-size:12px;line-height:1.5;}",
@@ -201,29 +262,65 @@ window.__ModuleLoader__.load({
 			);
 		}
 
-		/** 自由文字欄位。 */
-		function TextField(props) {
-			var spec = props.spec;
-			var draft = props.draft;
-			var text = draft !== undefined ? draft.text : spec.format(props.value);
-			var invalid = draft !== undefined && !draft.clear && spec.parse(draft.text) === undefined;
+		/** command 欄位：多列命令編輯器（可增刪列、上下移調整執行順序）。 */
+		function CommandField(props) {
+			// 用 Array.prototype.map 產生列：每個回呼的 index 參數獨立綁定，
+			// 避免 for(var i) 的函式作用域使所有 onChange/onClick 都捕獲同一 i。
+			var rows = props.items.map(function (text, i) {
+				return React.createElement("div", { key: "row" + i, className: "dshscc-commandRow" },
+					React.createElement("span", { className: "dshscc-commandIndex", "aria-hidden": true }, String(i + 1) + "."),
+					React.createElement("input", {
+						id: props.id + "-" + i,
+						className: "dshscc-input dshscc-commandInput",
+						type: "text",
+						value: text,
+						placeholder: props.placeholder,
+						disabled: props.disabled,
+						"aria-label": props.label + " " + (i + 1),
+						onChange: function (event) { props.onEditRow(i, event.target.value); }
+					}),
+					React.createElement("button", {
+						type: "button",
+						className: "dshscc-commandBtn",
+						disabled: props.disabled || i === 0,
+						title: props.moveUpLabel,
+						"aria-label": props.moveUpLabel,
+						onClick: function () { props.onMoveRow(i, -1); }
+					}, "\u2191"),
+					React.createElement("button", {
+						type: "button",
+						className: "dshscc-commandBtn",
+						disabled: props.disabled || i === props.items.length - 1,
+						title: props.moveDownLabel,
+						"aria-label": props.moveDownLabel,
+						onClick: function () { props.onMoveRow(i, 1); }
+					}, "\u2193"),
+					React.createElement("button", {
+						type: "button",
+						className: "dshscc-commandBtn",
+						disabled: props.disabled,
+						title: props.removeLabel,
+						"aria-label": props.removeLabel,
+						onClick: function () { props.onRemoveRow(i); }
+					}, "\u2715")
+				);
+			});
 			return React.createElement("div", { className: "dshscc-field" },
 				React.createElement("div", { className: "dshscc-head" },
-					React.createElement("label", { className: "dshscc-label", htmlFor: props.id }, props.label),
+					React.createElement("label", { className: "dshscc-label", htmlFor: props.id + "-0" }, props.label),
 					props.overridden ? React.createElement("span", { className: "dshscc-badges" },
 						React.createElement("span", { className: "dshscc-badge" }, props.overriddenLabel),
 						React.createElement("button", { type: "button", className: "dshscc-reset", disabled: props.disabled, onClick: props.onReset }, props.resetLabel)
 					) : null
 				),
-				React.createElement("input", {
-					id: props.id,
-					className: invalid ? "dshscc-input dshscc-inputInvalid" : "dshscc-input",
-					type: "text",
-					value: text,
+				rows.length > 0 ? React.createElement("div", { className: "dshscc-commandList" }, rows) : null,
+				React.createElement("button", {
+					type: "button",
+					className: "dshscc-commandAdd",
 					disabled: props.disabled,
-					onChange: function (event) { props.onEdit(event.target.value); }
-				}),
-				React.createElement("p", { className: invalid ? "dshscc-invalid" : "dshscc-hint" }, invalid ? props.invalidLabel : props.hint)
+					onClick: props.onAddRow
+				}, "+ " + props.addLabel),
+				React.createElement("p", { className: "dshscc-hint" }, props.hint)
 			);
 		}
 
@@ -253,7 +350,8 @@ window.__ModuleLoader__.load({
 			}, [scope]);
 			var snapshot = React.useSyncExternalStore(subscribe, function () { return scope.getSnapshot(); });
 
-			var open = React.useState(true);
+			// 預設收合：卡片預設不展開，使用者點擊表頭才展開設定區。
+			var open = React.useState(false);
 			var isOpen = open[0];
 			var setOpen = open[1];
 
@@ -281,7 +379,9 @@ window.__ModuleLoader__.load({
 
 			var fields = ["enabled", "shell", "command"];
 			var hasDraft = fields.some(function (field) { return drafts[field] !== undefined; });
+			// command 為多列清單：空白列儲存時自動移除，不會構成「無效」。
 			var hasInvalid = fields.some(function (field) {
+				if (field === "command") return false;
 				var draft = drafts[field];
 				if (draft === undefined || draft.clear) return false;
 				return SPECS[field].parse(draft.text) === undefined;
@@ -301,12 +401,78 @@ window.__ModuleLoader__.load({
 				});
 			}
 
+			/** 取 command 草稿的目前列內容：尚未編輯過時以解析值（value.command）為底。 */
+			function commandDraftFrom(prev) {
+				return prev.command !== undefined ? prev.command.items : commandItems(value.command);
+			}
+
+			/** 更新 command 第 index 列的原始文字。 */
+			function editCommandRow(index, text) {
+				setFailed(false);
+				setDrafts(function (prev) {
+					var nextItems = commandDraftFrom(prev).slice();
+					nextItems[index] = text;
+					var next = {};
+					for (var k in prev) next[k] = prev[k];
+					next.command = { clear: false, items: nextItems };
+					return next;
+				});
+			}
+
+			/** 在 command 清單末尾新增一列空白命令。 */
+			function addCommandRow() {
+				setFailed(false);
+				setDrafts(function (prev) {
+					var nextItems = commandDraftFrom(prev).slice();
+					nextItems.push("");
+					var next = {};
+					for (var k in prev) next[k] = prev[k];
+					next.command = { clear: false, items: nextItems };
+					return next;
+				});
+			}
+
+			/** 刪除 command 第 index 列。 */
+			function removeCommandRow(index) {
+				setFailed(false);
+				setDrafts(function (prev) {
+					var nextItems = commandDraftFrom(prev).slice();
+					nextItems.splice(index, 1);
+					var next = {};
+					for (var k in prev) next[k] = prev[k];
+					next.command = { clear: false, items: nextItems };
+					return next;
+				});
+			}
+
+			/** 把 command 第 index 列向上（-1）或向下（+1）移動一格（執行順序隨之改變）。 */
+			function moveCommandRow(index, delta) {
+				setFailed(false);
+				setDrafts(function (prev) {
+					var nextItems = commandDraftFrom(prev).slice();
+					var target = index + delta;
+					if (target < 0 || target >= nextItems.length) return prev;
+					var tmp = nextItems[index];
+					nextItems[index] = nextItems[target];
+					nextItems[target] = tmp;
+					var next = {};
+					for (var k in prev) next[k] = prev[k];
+					next.command = { clear: false, items: nextItems };
+					return next;
+				});
+			}
+
 			function resetField(field) {
 				setFailed(false);
 				setDrafts(function (prev) {
 					var next = {};
 					for (var k in prev) next[k] = prev[k];
-					next[field] = { text: SPECS[field].format(base[field]), clear: true };
+					if (field === "command") {
+						// 恢復預設：顯示 base 的列內容，儲存時 unset（重新繼承）。
+						next.command = { clear: true, items: commandItems(base.command) };
+					} else {
+						next[field] = { text: SPECS[field].format(base[field]), clear: true };
+					}
 					return next;
 				});
 			}
@@ -323,6 +489,11 @@ window.__ModuleLoader__.load({
 				for (var field of fields) {
 					var draft = drafts[field];
 					if (draft === undefined) continue;
+					if (field === "command") {
+						var commandWrite = commandDraftWrite(draft, value.command, user);
+						if (commandWrite !== null) writes.push({ field: "command", op: commandWrite.op, value: commandWrite.value });
+						continue;
+					}
 					var spec = SPECS[field];
 					if (draft.clear) {
 						if (stored(user, field)) writes.push({ field: field, op: "unset" });
@@ -389,7 +560,6 @@ window.__ModuleLoader__.load({
 					React.createElement("p", { className: "dshscc-notExposed", role: "status" }, t("notExposed"))
 				);
 			} else {
-				var commandIsArray = Array.isArray(value.command);
 				var disabled = !writable;
 				body = React.createElement("div", { className: "dshscc-body" },
 					!writable ? React.createElement("p", { className: "dshscc-readOnly", role: "status" }, t("readOnly")) : null,
@@ -429,19 +599,24 @@ window.__ModuleLoader__.load({
 						onEdit: function (text) { edit("shell", text); },
 						onReset: function () { resetField("shell"); }
 					}),
-					React.createElement(TextField, {
+					React.createElement(CommandField, {
 						id: "dsh-startup-command-command",
-						spec: SPECS.command,
 						label: t("commandLabel"),
-						hint: commandIsArray ? t("commandArrayHint") : t("commandHint"),
-						invalidLabel: "",
+						hint: t("commandHint"),
 						overriddenLabel: t("overridden"),
 						resetLabel: t("reset"),
-						value: value.command,
-						draft: drafts.command,
-						overridden: fieldOverridden(SPECS.command, drafts.command, user, "command"),
-						disabled: disabled || commandIsArray,
-						onEdit: function (text) { edit("command", text); },
+						placeholder: t("commandPlaceholder"),
+						addLabel: t("commandAdd"),
+						removeLabel: t("commandRemove"),
+						moveUpLabel: t("commandMoveUp"),
+						moveDownLabel: t("commandMoveDown"),
+						items: drafts.command !== undefined ? drafts.command.items : commandItems(value.command),
+						overridden: commandOverridden(drafts.command, user),
+						disabled: disabled,
+						onEditRow: editCommandRow,
+						onAddRow: addCommandRow,
+						onRemoveRow: removeCommandRow,
+						onMoveRow: moveCommandRow,
 						onReset: function () { resetField("command"); }
 					}),
 					React.createElement("div", { className: "dshscc-footer" },
