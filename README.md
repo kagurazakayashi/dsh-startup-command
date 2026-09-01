@@ -6,13 +6,13 @@ Language: English · [简体中文](README.zh-CN.md)
 
 Once `dsh web` has finished booting (the Loader tree has settled and the web server is listening), this plugin executes the command you configure in `settings.yaml` — for example, opening the Web GUI in a specific browser with specific flags.
 
-The command is fully driven by the settings file (the `dsh-startup-command` namespace of `settings.yaml`), never hard-coded in the plugin source. The `{url}` placeholder is replaced with the actual GUI address (`http://127.0.0.1:<port>`), so it works correctly even when `--port 0` lets the OS pick the port.
+The command is fully driven by the settings file (the `dsh-startup-command` namespace of `settings.yaml`), never hard-coded in the plugin source. The `{url}` placeholder is replaced with the actual GUI address (`http://127.0.0.1:<port>/?token=…`), so it works correctly even when `--port 0` lets the OS pick the port.
 
 ## Features
 
 - **Fires after startup succeeds**: it follows the exact lifecycle of the built-in `web-app` `openBrowser` — it waits for the whole Loader tree to settle and the `webServer` service to be ready, so the address it uses is always the real one after the server starts listening.
 - **Fully configurable command**: the plugin registers the `dsh-startup-command` namespace through the settings service; `command` accepts either a single string or an array of multiple commands, which run in order (the next one starts only after the previous one exits). No plugin source changes needed.
-- **`{url}` placeholder**: replaced with `http://127.0.0.1:<actual port>` before execution; works with OS-assigned ports (`--port 0`) as well.
+- **`{url}` placeholder**: replaced with `http://127.0.0.1:<actual port>/?token=…` before execution (newer dsh web requires the token to exchange a browser-login cookie; it degrades to the clean URL when the `connection` service is absent); works with OS-assigned ports (`--port 0`) as well.
 - **Does not block dsh**: the child process is spawned `detached` and `unref()`ed, so it runs independently and never holds up dsh shutdown.
 - **Toggle and mode**: `enabled: false` temporarily disables the plugin; `shell: true` runs the command through the system shell (default off — spawning with a plain argument array is safe even for paths with spaces).
 - **Skips when unconfigured**: if `command` is not set, it prints a warning and skips — no silent failure, no accidental execution.
@@ -72,7 +72,7 @@ Supported fields:
 - `enabled` (boolean, default `true`) — set to `false` to disable temporarily
 - `shell` (boolean, default `false`) — set to `true` to run through the system shell
 
-`{url}` in `command` is replaced with the actual GUI address before execution.
+`{url}` in `command` is replaced with the actual GUI address (the `?token=`-authenticated URL on newer dsh web) before execution.
 
 ## Examples
 

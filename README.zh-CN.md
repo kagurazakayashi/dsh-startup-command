@@ -6,13 +6,13 @@
 
 当 `dsh web` 完成启动（Loader 树全部稳定、webServer 开始监听）后，本插件会执行你在 `settings.yaml` 中配置的自定义命令——例如用特定浏览器、带特定参数打开 Web GUI。
 
-命令完全由设置文件（`settings.yaml` 的 `dsh-startup-command` 命名空间）决定，不硬编码在插件源码中。`{url}` 占位符会被替换为实际 GUI 地址（`http://127.0.0.1:<port>`），因此即使使用 `--port 0` 由操作系统分配端口也能正确工作。
+命令完全由设置文件（`settings.yaml` 的 `dsh-startup-command` 命名空间）决定，不硬编码在插件源码中。`{url}` 占位符会被替换为实际 GUI 地址（`http://127.0.0.1:<port>/?token=…`），因此即使使用 `--port 0` 由操作系统分配端口也能正确工作。
 
 ## 功能特性
 
 - **启动成功后触发**：与内置 `web-app` 的 `openBrowser` 走完全相同的生命周期——等整棵 Loader 树 settle、`webServer` 服务就绪之后才执行，保证拿到的一定是「监听启动后」的实际地址。
 - **命令完全可配置**：通过 settings 服务注册 `dsh-startup-command` 命名空间，`command` 支持单条字符串或多条数组；多条命令按顺序依次执行（前一条退出后才执行下一条）。改配置无需动插件源码。
-- **`{url}` 占位符**：执行前替换为 `http://127.0.0.1:<实际端口>`，端口自动分配（`--port 0`）时同样生效。
+- **`{url}` 占位符**：执行前替换为 `http://127.0.0.1:<实际端口>/?token=…`（新版 dsh web 需要 token 换取浏览器登录 cookie；旧版或无 `connection` 服务时自动退回不带 token 的干净 URL），端口自动分配（`--port 0`）时同样生效。
 - **不阻塞 dsh 进程**：以 `detached` 方式生成子进程并 `unref()`，命令独立运行，dsh 退出时不会被拖住。
 - **开关与模式**：`enabled: false` 可临时关闭；`shell: true` 可走系统 shell 执行（默认关闭，直接以参数数组 spawn，路径含空格也安全）。
 - **配置缺失即跳过**：未设置 `command` 时打印警告并跳过，不会静默失败或误执行。
@@ -72,7 +72,7 @@ dsh-startup-command:
 - `enabled` (boolean, 默认 `true`) — 设为 `false` 临时关闭
 - `shell` (boolean, 默认 `false`) — 设为 `true` 时经系统 shell 执行
 
-`command` 中的 `{url}` 会在执行前替换为实际 GUI 地址。
+`command` 中的 `{url}` 会在执行前替换为实际 GUI 地址（新版 dsh web 为带 `?token=` 的认证 URL）。
 
 ## 使用示例
 

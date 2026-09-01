@@ -21,7 +21,11 @@
  *       - '"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="D:\dsh-chrome-profile" --app={url}'
  *     shell: false
  *
- * {url} 佔位符會在執行前替換為實際 GUI 位址（http://127.0.0.1:<port>）。
+ * {url} 佔位符會在執行前替換為實際 GUI 位址。新版 dsh web（0.1.2-rc.1 起）
+ * 對根路徑做瀏覽器認證：乾淨 URL（http://127.0.0.1:<port>）會得到 401，必須
+ * 攜帶 ?token= 才能交換成登入 session cookie。本插件優先透過
+ * ctx.connection.authenticatedUrl() 取得帶 token 的 URL，舊版或無 connection
+ * 服務時才退回乾淨 URL。
  */
 import { spawn } from "node:child_process";
 import z from "@deepseek-ai/schemastery";
@@ -150,7 +154,15 @@ export function apply(ctx) {
 	const launch = () => {
 		const server = /** @type {{port?: number} | undefined} */ (ctx.get("webServer"));
 		if (server === undefined || server.port === undefined) return;
-		const url = `http://127.0.0.1:${String(server.port)}`;
+		const cleanUrl = `http://127.0.0.1:${String(server.port)}`;
+		// 新版 dsh web 對根路徑做瀏覽器認證（token → 簽名 cookie），乾淨 URL 會
+		// 拿到 401。內建 web-app 的 openBrowser 正是呼叫
+		// ctx.connection.authenticatedUrl(cleanUrl) 來產生帶 ?token= 的 URL；此處
+		// 如法炮製，並在無 connection 服務（舊版 / 非 web profile）時退回乾淨 URL。
+		const connection = /** @type {{authenticatedUrl?: (baseUrl: string) => string} | undefined} */ (ctx.get("connection"));
+		const url = connection !== undefined && typeof connection.authenticatedUrl === "function"
+			? connection.authenticatedUrl(cleanUrl)
+			: cleanUrl;
 		const settings = /** @type {{enabled: boolean, command: string | string[], shell: boolean} | undefined} */ (ctx.get("settings")?.get(SETTINGS_NS));
 		// Loader settle 後註冊必然已完成，此處理論上不會是 undefined。
 		if (settings === undefined) return;
