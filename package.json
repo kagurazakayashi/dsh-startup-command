@@ -1,6 +1,6 @@
 {
   "name": "@kagurazakayashi/dsh-startup-command",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A DeepSeek Harness Web plugin that runs a user-defined command after the web profile has started successfully.",
   "license": "MIT",
   "author": "KagurazakaYashi(KagurazakaMiyabi)",
@@ -58,9 +58,9 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "*",
-    "@deepseek-ai/schemastery": "*",
-    "@deepseek-ai/dsh-settings": "*",
-    "@deepseek-ai/dsh-host-webserver": "*"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/dsh-settings": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.2-rc.1"
   }
 }
