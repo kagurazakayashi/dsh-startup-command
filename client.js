@@ -10,6 +10,7 @@ window.__ModuleLoader__.load({
 		// 一張可展開卡片，就地編輯本外掛在 settings.yaml 的
 		// dsh-startup-command 命名空間（enabled / shell / command）。
 		// command 以多列清單編輯：可新增 / 刪除命令、上下移調整執行順序，
+		// 並提供「添加示例命令」按鈕插入使用 {browser}/{home}/{url} 的現成命令；
 		// 儲存時單條寫字串、多條寫陣列（與 host 端 schema 的兩種形式相容）。
 		//
 		// 與官方 dsh-client-ui-settings-plugins 的卡片走同一機制：
@@ -39,8 +40,36 @@ window.__ModuleLoader__.load({
 			shellLabel: "经系统 shell 执行",
 			shellHint: "开启后，命令会交给系统 shell 执行（默认关闭，直接以参数数组启动，路径含空格更安全）。",
 			commandLabel: "命令",
-			commandHint: "每条命令按顺序依次执行（前一条退出后才执行下一条）。{url} 会在执行前替换为实际 GUI 地址；空白行保存时会自动移除。",
+			commandHint: "每条命令按顺序依次执行（前一条退出后才执行下一条）。{url} 会在执行前替换为实际 GUI 地址；{browser} 会自动查找 Chromium/Chrome/Edge 浏览器（优先 Chromium > Chrome > Edge，若默认浏览器是其中之一则采用默认浏览器）；{home} 会替换为用户文件夹；空白行保存时会自动移除。",
 			commandAdd: "添加命令",
+			commandAddExample: "添加示例命令",
+			exampleDialogTitle: "示例命令说明",
+			exampleDialogIntro: "下面这条命令会在启动时由 dsh 解析并执行；确认后追加到命令列表末尾，再点击「保存」生效。",
+			exampleDialogPlaceholdersTitle: "占位符",
+			exampleDialogFlagsTitle: "参数说明",
+			exampleBrowserCode: "{browser}",
+			exampleBrowserText: "自动查找 Chromium/Chrome/Edge：优先 Chromium > Chrome > Edge；若默认浏览器是其中之一，则改用默认浏览器。",
+			exampleHomeCode: "{home}",
+			exampleHomeText: "替换为用户文件夹（例如 C:\\Users\\you 或 /home/you）。",
+			exampleUrlCode: "{url}",
+			exampleUrlText: "替换为实际 GUI 地址（新版为带 ?token= 的认证地址）。",
+			exampleUserDataDirCode: "--user-data-dir=\"…\"",
+			exampleUserDataDirText: "浏览器配置目录：用户文件夹/.dsh/dsh-browser-data。",
+			exampleDiskCacheDirCode: "--disk-cache-dir=\"…\"",
+			exampleDiskCacheDirText: "磁盘缓存目录：用户文件夹/.dsh/dsh-browser-cache。",
+			exampleAppCode: "--app={url}",
+			exampleAppText: "以应用模式窗口打开（无地址栏/工具栏）。",
+			exampleNoFirstRunCode: "--no-first-run",
+			exampleNoFirstRunText: "不显示首次运行欢迎画面。",
+			exampleDisableExtensionsCode: "--disable-extensions",
+			exampleDisableExtensionsText: "不加载任何扩展。",
+			exampleDialogCancel: "取消",
+			exampleDialogAdd: "添加",
+			exampleUnavailableTitle: "无法生成示例命令",
+			exampleUnavailableIntro: "未能自动找到 Chromium/Chrome/Edge 浏览器，因此无法生成示例命令。",
+			exampleReasonNotFound: "原因：在常见安装位置均未找到 Chromium、Chrome 或 Edge，且系统默认浏览器也不是这三者之一。",
+			exampleReasonUnsupportedPlatform: "原因：当前系统不是 Windows、macOS 或 Linux，无法自动查找浏览器。",
+			exampleClose: "关闭",
 			commandRemove: "删除",
 			commandMoveUp: "上移",
 			commandMoveDown: "下移",
@@ -69,8 +98,36 @@ window.__ModuleLoader__.load({
 			shellLabel: "Run through system shell",
 			shellHint: "When on, the command runs through the system shell (off by default; plain argv spawning is safer for paths with spaces).",
 			commandLabel: "Command",
-			commandHint: "Commands run in order (the next one starts only after the previous one exits). {url} is replaced with the actual GUI address; blank rows are dropped on save.",
+			commandHint: "Commands run in order (the next one starts only after the previous one exits). {url} is replaced with the actual GUI address; {browser} auto-detects Chromium/Chrome/Edge (priority Chromium > Chrome > Edge, or the default browser when it is one of them); {home} is replaced with the user folder; blank rows are dropped on save.",
 			commandAdd: "Add command",
+			commandAddExample: "Add example command",
+			exampleDialogTitle: "Example command",
+			exampleDialogIntro: "This command is resolved and run by dsh at startup; confirm to append it to the command list, then click Save to apply.",
+			exampleDialogPlaceholdersTitle: "Placeholders",
+			exampleDialogFlagsTitle: "Flags",
+			exampleBrowserCode: "{browser}",
+			exampleBrowserText: "Auto-detects Chromium/Chrome/Edge: priority Chromium > Chrome > Edge, or the default browser when it is one of them.",
+			exampleHomeCode: "{home}",
+			exampleHomeText: "Replaced with the user folder (e.g. C:\\Users\\you or /home/you).",
+			exampleUrlCode: "{url}",
+			exampleUrlText: "Replaced with the actual GUI address (the ?token= authenticated URL on newer dsh web).",
+			exampleUserDataDirCode: "--user-data-dir=\"…\"",
+			exampleUserDataDirText: "Browser profile directory: user folder/.dsh/dsh-browser-data.",
+			exampleDiskCacheDirCode: "--disk-cache-dir=\"…\"",
+			exampleDiskCacheDirText: "Disk cache directory: user folder/.dsh/dsh-browser-cache.",
+			exampleAppCode: "--app={url}",
+			exampleAppText: "Opens an app-mode window (no address bar / toolbar).",
+			exampleNoFirstRunCode: "--no-first-run",
+			exampleNoFirstRunText: "Skips the first-run welcome screen.",
+			exampleDisableExtensionsCode: "--disable-extensions",
+			exampleDisableExtensionsText: "Loads no extensions.",
+			exampleDialogCancel: "Cancel",
+			exampleDialogAdd: "Add",
+			exampleUnavailableTitle: "Cannot generate example command",
+			exampleUnavailableIntro: "No Chromium/Chrome/Edge browser was found, so the example command cannot be generated.",
+			exampleReasonNotFound: "Reason: none of Chromium, Chrome, or Edge was found in the common install locations, and the system default browser is not one of them.",
+			exampleReasonUnsupportedPlatform: "Reason: the current OS is not Windows, macOS, or Linux, so browser auto-detection is unavailable.",
+			exampleClose: "Close",
 			commandRemove: "Remove",
 			commandMoveUp: "Move up",
 			commandMoveDown: "Move down",
@@ -125,6 +182,33 @@ window.__ModuleLoader__.load({
 				if (trimmed !== "") out.push(trimmed);
 			}
 			return out;
+		}
+
+		/** 粗略判斷目前作業系統（僅用於決定範例命令的路徑分隔字元）。 */
+		function detectPlatform() {
+			var ua = "";
+			var platform = "";
+			if (typeof navigator !== "undefined") {
+				ua = (navigator.userAgent || "").toLowerCase();
+				platform = (navigator.platform || "").toLowerCase();
+				if (navigator.userAgentData && typeof navigator.userAgentData.platform === "string") {
+					platform = navigator.userAgentData.platform.toLowerCase();
+				}
+			}
+			if (/windows|win32|win64/.test(platform) || /windows/.test(ua)) return "win32";
+			if (/mac|darwin/.test(platform) || /macintosh/.test(ua)) return "darwin";
+			return "linux";
+		}
+
+		/**
+		 * 產生「添加示例命令」按鈕要插入的命令字串。
+		 * {browser} 與 {home} 由 host 端在執行前解析，因此這裡只需依照目前
+		 * 系統選擇路徑分隔字元（Windows 用反斜線、macOS/Linux 用正斜線）。
+		 * @returns {string} 命令範本字串。
+		 */
+		function exampleCommand() {
+			var sep = detectPlatform() === "win32" ? "\\" : "/";
+			return '"{browser}" --user-data-dir="{home}' + sep + '.dsh' + sep + 'dsh-browser-data" --disk-cache-dir="{home}' + sep + '.dsh' + sep + 'dsh-browser-cache" --app={url} --no-first-run --disable-extensions';
 		}
 
 		/**
@@ -211,6 +295,22 @@ window.__ModuleLoader__.load({
 			".dshscc-commandAdd:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed);color:var(--dsw-alias-label-primary);}",
 			".dshscc-commandAdd:disabled{opacity:.5;cursor:default;}",
 			".dshscc-commandAdd:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px;}",
+			".dshscc-commandExample{width:100%;margin-top:6px;padding:5px 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:1.5;cursor:pointer;}",
+			".dshscc-commandExample:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed);color:var(--dsw-alias-label-primary);}",
+			".dshscc-commandExample:disabled{opacity:.5;cursor:default;}",
+			".dshscc-commandExample:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px;}",
+			".dshscc-modal{position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;display:flex;}",
+			".dshscc-modalBackdrop{position:absolute;inset:0;background:rgba(0,0,0,.42);}",
+			".dshscc-modalCard{position:relative;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.28);box-sizing:border-box;}",
+			".dshscc-modalTitle{margin:0 0 8px;font-size:16px;font-weight:600;line-height:1.4;color:var(--dsw-alias-label-primary);}",
+			".dshscc-modalIntro{margin:0 0 12px;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary);}",
+			".dshscc-modalCode{margin:0;padding:10px 12px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;color:var(--dsw-alias-label-primary);white-space:pre-wrap;word-break:break-word;overflow:auto;}",
+			".dshscc-modalSection{margin-top:12px;}",
+			".dshscc-modalSectionTitle{margin:0 0 6px;font-size:13px;font-weight:600;line-height:1.5;color:var(--dsw-alias-label-secondary);}",
+			".dshscc-modalItem{display:flex;gap:8px;margin-top:6px;align-items:flex-start;}",
+			".dshscc-modalItemCode{flex:none;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);}",
+			".dshscc-modalItemText{min-width:0;flex:1;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary);}",
+			".dshscc-modalFooter{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:16px;}",
 			".dshscc-invalid{color:var(--dsw-alias-label-error);margin:0;font-size:12px;line-height:1.5;}",
 			".dshscc-footer{border-top:1px solid var(--dsw-alias-border-l2);justify-content:flex-end;align-items:center;gap:8px;padding:12px 0 4px;display:flex;}",
 			".dshscc-failed{min-width:0;color:var(--dsw-alias-label-error);flex:1;margin:0;font-size:12px;line-height:1.5;}",
@@ -320,11 +420,86 @@ window.__ModuleLoader__.load({
 					disabled: props.disabled,
 					onClick: props.onAddRow
 				}, "+ " + props.addLabel),
+				React.createElement("button", {
+					type: "button",
+					className: "dshscc-commandExample",
+					disabled: props.disabled,
+					onClick: props.onAddExample
+				}, props.exampleLabel),
 				React.createElement("p", { className: "dshscc-hint" }, props.hint)
 			);
 		}
 
-		// ---------- 卡片元件 ----------
+		/** 「添加示例命令」說明框：找到瀏覽器時展示範例命令，找不到時顯示原因並只允許關閉。 */
+		function ExampleDialog(props) {
+			var t = props.t;
+			var available = props.available !== false;
+			var reason = props.reason;
+			var reasonText = reason === "unsupported-platform" ? t("exampleReasonUnsupportedPlatform") : t("exampleReasonNotFound");
+			var title = available ? t("exampleDialogTitle") : t("exampleUnavailableTitle");
+
+			var body = null;
+			var footer = null;
+			if (!available) {
+				body = [
+					React.createElement("p", { key: "intro", className: "dshscc-modalIntro" }, t("exampleUnavailableIntro")),
+					React.createElement("p", { key: "reason", className: "dshscc-modalIntro" }, reasonText)
+				];
+				footer = React.createElement("div", { className: "dshscc-modalFooter" },
+					React.createElement("button", { type: "button", className: "dshscc-save", onClick: props.onCancel }, t("exampleClose"))
+				);
+			} else {
+				var placeholders = [
+					{ code: t("exampleBrowserCode"), text: t("exampleBrowserText") },
+					{ code: t("exampleHomeCode"), text: t("exampleHomeText") },
+					{ code: t("exampleUrlCode"), text: t("exampleUrlText") }
+				];
+				var flags = [
+					{ code: t("exampleUserDataDirCode"), text: t("exampleUserDataDirText") },
+					{ code: t("exampleDiskCacheDirCode"), text: t("exampleDiskCacheDirText") },
+					{ code: t("exampleAppCode"), text: t("exampleAppText") },
+					{ code: t("exampleNoFirstRunCode"), text: t("exampleNoFirstRunText") },
+					{ code: t("exampleDisableExtensionsCode"), text: t("exampleDisableExtensionsText") }
+				];
+				body = [
+					React.createElement("p", { key: "intro", className: "dshscc-modalIntro" }, t("exampleDialogIntro")),
+					React.createElement("pre", { key: "code", className: "dshscc-modalCode" }, props.command),
+					React.createElement("div", { key: "placeholders", className: "dshscc-modalSection" },
+						React.createElement("div", { className: "dshscc-modalSectionTitle" }, t("exampleDialogPlaceholdersTitle")),
+						placeholders.map(function (item, i) {
+							return React.createElement("div", { key: "ph" + i, className: "dshscc-modalItem" },
+								React.createElement("code", { className: "dshscc-modalItemCode" }, item.code),
+								React.createElement("span", { className: "dshscc-modalItemText" }, item.text)
+							);
+						})
+					),
+					React.createElement("div", { key: "flags", className: "dshscc-modalSection" },
+						React.createElement("div", { className: "dshscc-modalSectionTitle" }, t("exampleDialogFlagsTitle")),
+						flags.map(function (item, i) {
+							return React.createElement("div", { key: "flag" + i, className: "dshscc-modalItem" },
+								React.createElement("code", { className: "dshscc-modalItemCode" }, item.code),
+								React.createElement("span", { className: "dshscc-modalItemText" }, item.text)
+							);
+						})
+					)
+				];
+				footer = React.createElement("div", { className: "dshscc-modalFooter" },
+					React.createElement("button", { type: "button", className: "dshscc-discard", onClick: props.onCancel }, t("exampleDialogCancel")),
+					React.createElement("button", { type: "button", className: "dshscc-save", onClick: props.onConfirm }, t("exampleDialogAdd"))
+				);
+			}
+
+			return React.createElement("div", { className: "dshscc-modal", role: "dialog", "aria-modal": "true", "aria-label": title },
+				React.createElement("div", { className: "dshscc-modalBackdrop", onClick: props.onCancel }),
+				React.createElement("div", { className: "dshscc-modalCard" },
+					React.createElement("h3", { className: "dshscc-modalTitle" }, title),
+					body,
+					footer
+				)
+			);
+		}
+
+	// ---------- 卡片元件 ----------
 
 		/** 判斷某欄位是否落在使用者層（已覆蓋）。 */
 		function stored(user, field) {
@@ -367,6 +542,10 @@ window.__ModuleLoader__.load({
 			var failed = failedState[0];
 			var setFailed = failedState[1];
 
+			var exampleOpenState = React.useState(false);
+			var exampleOpen = exampleOpenState[0];
+			var setExampleOpen = exampleOpenState[1];
+
 			var status = snapshot.status;
 			// 載入中（或尚未開始讀取）時不渲染，避免閃爍。
 			if (status === "loading" || status === "idle") return null;
@@ -376,6 +555,9 @@ window.__ModuleLoader__.load({
 			var value = snapshot.value || {};
 			var base = snapshot.base || {};
 			var user = snapshot.user;
+			// host 端在註冊時計算的瀏覽器偵測結果；false 時「添加示例命令」改為顯示原因。
+			var exampleAvailable = base.browserFound === true;
+			var exampleReason = typeof base.browserReason === "string" ? base.browserReason : "";
 
 			var fields = ["enabled", "shell", "command"];
 			var hasDraft = fields.some(function (field) { return drafts[field] !== undefined; });
@@ -430,6 +612,31 @@ window.__ModuleLoader__.load({
 					next.command = { clear: false, items: nextItems };
 					return next;
 				});
+			}
+
+			/** 開啟「添加示例命令」說明框。 */
+			function openExampleDialog() {
+				setFailed(false);
+				setExampleOpen(true);
+			}
+
+			/** 確認後才把範例命令追加到 command 清單末尾。 */
+			function confirmExampleCommand() {
+				setFailed(false);
+				setDrafts(function (prev) {
+					var nextItems = commandDraftFrom(prev).slice();
+					nextItems.push(exampleCommand());
+					var next = {};
+					for (var k in prev) next[k] = prev[k];
+					next.command = { clear: false, items: nextItems };
+					return next;
+				});
+				setExampleOpen(false);
+			}
+
+			/** 取消並關閉「添加示例命令」說明框。 */
+			function cancelExampleDialog() {
+				setExampleOpen(false);
 			}
 
 			/** 刪除 command 第 index 列。 */
@@ -607,6 +814,7 @@ window.__ModuleLoader__.load({
 						resetLabel: t("reset"),
 						placeholder: t("commandPlaceholder"),
 						addLabel: t("commandAdd"),
+						exampleLabel: t("commandAddExample"),
 						removeLabel: t("commandRemove"),
 						moveUpLabel: t("commandMoveUp"),
 						moveDownLabel: t("commandMoveDown"),
@@ -615,6 +823,7 @@ window.__ModuleLoader__.load({
 						disabled: disabled,
 						onEditRow: editCommandRow,
 						onAddRow: addCommandRow,
+						onAddExample: openExampleDialog,
 						onRemoveRow: removeCommandRow,
 						onMoveRow: moveCommandRow,
 						onReset: function () { resetField("command"); }
@@ -637,6 +846,14 @@ window.__ModuleLoader__.load({
 				);
 			}
 
+			var dialog = exampleOpen ? React.createElement(ExampleDialog, {
+				t: t,
+				available: exampleAvailable,
+				reason: exampleReason,
+				command: exampleCommand(),
+				onConfirm: confirmExampleCommand,
+				onCancel: cancelExampleDialog
+			}) : null;
 			return React.createElement("li", { className: isOpen ? "dshscc-card dshscc-cardOpen" : "dshscc-card" },
 				React.createElement("button", {
 					type: "button",
@@ -645,7 +862,8 @@ window.__ModuleLoader__.load({
 					"aria-label": (isOpen ? t("collapse") : t("expand")) + ": " + title,
 					onClick: function () { setOpen(!isOpen); }
 				}, headerChildren),
-				isOpen ? body : null
+				isOpen ? body : null,
+				dialog
 			);
 		}
 

@@ -8,52 +8,70 @@ Once `dsh web` has finished booting (the Loader tree has settled and the web ser
 
 The command is fully driven by the settings file (the `dsh-startup-command` namespace of `settings.yaml`), never hard-coded in the plugin source. The `{url}` placeholder is replaced with the actual GUI address (`http://127.0.0.1:<port>/?token=…`), so it works correctly even when `--port 0` lets the OS pick the port.
 
+## Screenshots
+
+The settings card under **Settings → Plugins → Plugin configuration**:
+
+![Startup command settings card (English)](screenshot_en.png)
+
+![启动命令设置卡片（简体中文）](screenshot_cn.png)
+
 ## Features
 
 - **Fires after startup succeeds**: it follows the exact lifecycle of the built-in `web-app` `openBrowser` — it waits for the whole Loader tree to settle and the `webServer` service to be ready, so the address it uses is always the real one after the server starts listening.
 - **Fully configurable command**: the plugin registers the `dsh-startup-command` namespace through the settings service; `command` accepts either a single string or an array of multiple commands, which run in order (the next one starts only after the previous one exits). No plugin source changes needed.
-- **`{url}` placeholder**: replaced with `http://127.0.0.1:<actual port>/?token=…` before execution (newer dsh web requires the token to exchange a browser-login cookie; it degrades to the clean URL when the `connection` service is absent); works with OS-assigned ports (`--port 0`) as well.
+- **`{url}` / `{home}` / `{browser}` placeholders**: `{url}` is replaced with `http://127.0.0.1:<actual port>/?token=…` before execution (newer dsh web requires the token to exchange a browser-login cookie; it degrades to the clean URL when the `connection` service is absent) and works with OS-assigned ports (`--port 0`); `{home}` is replaced with the user folder; `{browser}` auto-detects a Chromium-family browser (priority `Chromium > Chrome > Edge`, or the default browser when it is one of them).
 - **Does not block dsh**: the child process is spawned `detached` and `unref()`ed, so it runs independently and never holds up dsh shutdown.
 - **Toggle and mode**: `enabled: false` temporarily disables the plugin; `shell: true` runs the command through the system shell (default off — spawning with a plain argument array is safe even for paths with spaces).
 - **Skips when unconfigured**: if `command` is not set, it prints a warning and skips — no silent failure, no accidental execution.
-- **Web settings card**: an expandable card under **Settings → Plugins → Plugin configuration** edits `enabled`, `shell`, and `command` in place — no need to edit `settings.yaml` by hand.
+- **Web settings card**: an expandable card under **Settings → Plugins → Plugin configuration** edits `enabled`, `shell`, and `command` in place, with an **Add example command** button that opens an explanation dialog and then inserts a ready-made auto-detect-browser command — no need to edit `settings.yaml` by hand.
 
 ## Installation
 
-This plugin is dual-face: a host half (`index.js`, runs the command at startup) and a browser half (`client.js`, registers a settings card under **Settings → Plugins → Plugin configuration**). It is mounted in the user layer of a local web profile and is not published to npm.
+This plugin is dual-face: a host half (`index.js`, runs the command at startup) and a browser half (`client.js`, registers a settings card under **Settings → Plugins → Plugin configuration**).
 
-1. Place the plugin directory under the profile:
+### 1. Get the package
 
-   ```
-   C:\Users\<you>\.dsh\profiles\web\plugins\dsh-startup-command\
-   ```
+From npm (recommended):
 
-2. Add a `link:` dependency to `C:\Users\<you>\.dsh\profiles\web\package.json` so both halves are discoverable by package name:
+```sh
+npm install @kagurazakayashi/dsh-startup-command
+# or, in a pnpm-based profile:
+# pnpm add @kagurazakayashi/dsh-startup-command
+```
 
-   ```json
-   {
-     "dependencies": {
-       "@kagurazakayashi/dsh-startup-command": "link:plugins/dsh-startup-command"
-     }
-   }
-   ```
+Or from source (local development) — place the plugin directory under the profile and link it:
 
-   Then run `pnpm install` to materialize the link — or create a
-   `node_modules/@kagurazakayashi/dsh-startup-command` junction/symlink pointing
-   at `../../plugins/dsh-startup-command` manually.
+```
+C:\Users\<you>\.dsh\profiles\web\plugins\dsh-startup-command\
+```
 
-3. Add an `insert` entry to `C:\Users\<you>\.dsh\profiles\web\cordis.patch.yml` (mounting only; the command lives in `settings.yaml`):
+```json
+{
+  "dependencies": {
+    "@kagurazakayashi/dsh-startup-command": "link:plugins/dsh-startup-command"
+  }
+}
+```
 
-   ```yaml
-   - insert:
-       - id: dsh-startup-command
-         name: '@kagurazakayashi/dsh-startup-command'
-         inject: [webServer]
-   ```
+Then run `pnpm install` to materialize the link — or create a
+`node_modules/@kagurazakayashi/dsh-startup-command` junction/symlink pointing
+at `../../plugins/dsh-startup-command` manually.
 
-4. Add the `dsh-startup-command` namespace to `C:\Users\<you>\.dsh\settings.yaml` (see the next section).
+### 2. Mount the plugin
 
-5. Restart `dsh web` for the change to take effect. After the restart, a settings card for this plugin appears under **Settings → Plugins → Plugin configuration**, where `enabled`, `shell`, and `command` can be edited in place.
+Add an `insert` entry to `C:\Users\<you>\.dsh\profiles\web\cordis.patch.yml` (mounting only; the command lives in `settings.yaml`):
+
+```yaml
+- insert:
+    - id: dsh-startup-command
+      name: '@kagurazakayashi/dsh-startup-command'
+      inject: [webServer]
+```
+
+### 3. Configure and restart
+
+Add the `dsh-startup-command` namespace to `C:\Users\<you>\.dsh\settings.yaml` (see the next section), then restart `dsh web`. After the restart, a settings card for this plugin appears under **Settings → Plugins → Plugin configuration**, where `enabled`, `shell`, and `command` can be edited in place.
 
 ## Configuration
 
@@ -72,7 +90,13 @@ Supported fields:
 - `enabled` (boolean, default `true`) — set to `false` to disable temporarily
 - `shell` (boolean, default `false`) — set to `true` to run through the system shell
 
-`{url}` in `command` is replaced with the actual GUI address (the `?token=`-authenticated URL on newer dsh web) before execution.
+`command` supports these placeholders, all replaced before execution:
+
+- `{url}` — the actual GUI address (the `?token=`-authenticated URL on newer dsh web)
+- `{home}` — the current user folder (`os.homedir()`)
+- `{browser}` — the auto-detected Chromium-family browser executable. Detection rule: if the system default browser is Chromium / Chrome / Edge, the default browser wins; otherwise the first installed browser in `Chromium > Chrome > Edge` priority is used
+
+The **Add example command** button on the web settings card opens a dialog explaining the example, then appends a ready-made command using `{browser}`, `{home}`, and `{url}`. If no Chromium / Chrome / Edge browser was found when dsh started, it shows a "cannot generate example command" message with the reason instead.
 
 ## Examples
 
@@ -92,6 +116,13 @@ What each flag does:
 - `--disk-cache-dir=<path>` — set the disk cache directory
 
 Note: a dedicated `--user-data-dir` avoids clashing with an already-running Chrome instance (otherwise `--app` is taken over by the existing instance and the switches have no effect).
+
+Auto-detect Chromium / Chrome / Edge with the flags above (equivalent to the **Add example command** button on the web card):
+
+```yaml
+dsh-startup-command:
+  command: '"{browser}" --user-data-dir="{home}/.dsh/dsh-browser-data" --disk-cache-dir="{home}/.dsh/dsh-browser-cache" --app={url} --no-first-run --disable-extensions'
+```
 
 Multiple commands run in order (the next one starts only after the previous one exits):
 
