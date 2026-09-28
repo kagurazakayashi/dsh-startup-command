@@ -6,30 +6,39 @@ window.__ModuleLoader__.load({
 		// =====================================================================
 		// dsh-startup-command（瀏覽器端）
 		//
-		// 在官方「設定 → 外掛 → 外掛組態」分頁（settings.plugin.item 席位）註冊
-		// 一張可展開卡片，就地編輯本外掛在 settings.yaml 的
-		// dsh-startup-command 命名空間（enabled / shell / command）。
+		// 在「外掛」頁的該外掛頁面（plugins.bundle.config 席位，以 npm 包名為鍵）
+		// 註冊一張可展開卡片，就地編輯本外掛的設定（enabled / shell / command）。
 		// command 以多列清單編輯：可新增 / 刪除命令、上下移調整執行順序，
 		// 並提供「添加示例命令」按鈕插入使用 {browser}/{home}/{url} 的現成命令；
-		// 儲存時單條寫字串、多條寫陣列（與 host 端 schema 的兩種形式相容）。
+		// 儲存時單條寫字串、多條寫陣列（與 host 端 Config 的兩種形式相容）。
 		//
-		// 與官方 dsh-client-ui-settings-plugins 的卡片走同一機制：
+		// dsh 0.2.0 的機制（舊版的 settingsScope 服務與 settings.plugin.item
+		// 席位都已移除）：
 		//   1. 本 bundle 只 require("react")（平台 seed 字），slots / locale /
-		//      settingsScope 三個服務透過 cordis 的 inject 宣告取得，不跨外掛
+		//      configForms 三個服務透過 cordis 的 inject 宣告取得，不跨外掛
 		//      做值匯入（遵守 bundle 純淨度門禁）。
-		//   2. apply(ctx) 用 ctx.settingsScope.bind({ namespace }) 綁定
-		//      dsh-startup-command 命名空間，再把 scope 注入卡片元件。
-		//   3. 卡片以 React.useSyncExternalStore 讀取 scope 快照，暫存使用者的
-		//      草稿，按下「儲存」才把草稿寫回 host（revision 設柵由 scope 負責）。
+		//   2. apply(ctx) 等 configForms 服務服務本外掛的設定命名空間
+		//      （＝profile 入口 id：dsh-startup-command）後，以
+		//      ctx.configForms.get(NS) 取得設定表單並注入卡片元件。
+		//   3. 卡片以 React.useSyncExternalStore 讀取表單快照，暫存使用者的
+		//      草稿，按下「儲存」才把草稿寫回 host（revision 設柵由表單負責）。
+		//   4. 瀏覽器探測結果（{browser} 是否可用）改由 host 的唯讀路由
+		//      /dsh-startup-command/browser 提供，卡片掛載時讀取。
 		// =====================================================================
 
 		var React = require("react");
 
-		/** 穩定外掛名稱（字典命名空間與 settings 命名空間同名）。 */
+		/** 穩定外掛名稱（字典命名空間與設定命名空間同名）。 */
 		var NS = "dsh-startup-command";
 
-		/** 本外掛需要的瀏覽器服務（slots：註冊卡片；locale：多語；settingsScope：綁定命名空間）。 */
-		var inject = ["slots", "locale", "settingsScope"];
+		/** 本外掛的 npm 包名：plugins.bundle.config 以它為鍵。 */
+		var PACKAGE = "@kagurazakayashi/dsh-startup-command";
+
+		/** host 端唯讀的瀏覽器探測結果路由。 */
+		var BROWSER_INFO_ROUTE = "/dsh-startup-command/browser";
+
+		/** 本外掛需要的瀏覽器服務（slots：註冊卡片；locale：多語；configForms：設定表單）。 */
+		var inject = ["slots", "locale", "configForms"];
 
 		// ---------- 多語文案 ----------
 		var zh = {
@@ -499,6 +508,61 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+	// ---------- 瀏覽器探測結果（來自 host 唯讀路由） ----------
+	// dsh 0.2.0 的設定 schema 只能宣告靜態預設值，主機端無法把執行期計算的
+	// 探測結果注入 schema，因此改由 host 的 /dsh-startup-command/browser
+	// 路由提供；卡片掛載時讀取一次，失敗時維持「未找到」。
+	var browserInfo = { found: false, id: "", path: "", reason: "" };
+	var browserListeners = new Set();
+
+	/** 發布新的探測結果並通知訂閱者。 */
+	function publishBrowser(next) {
+		browserInfo = next;
+		for (var listener of Array.from(browserListeners)) {
+			try {
+				listener();
+			} catch {
+				// 單一訂閱者失敗不影響其他訂閱者。
+			}
+		}
+	}
+
+	/** 訂閱探測結果（useSyncExternalStore 的 subscribe）。 */
+	function subscribeBrowser(listener) {
+		browserListeners.add(listener);
+		return function () {
+			browserListeners.delete(listener);
+		};
+	}
+
+	/** 讀取目前的探測結果快照（穩定引用，僅在發布時替換）。 */
+	function getBrowserInfo() {
+		return browserInfo;
+	}
+
+	/**
+	 * 向 host 讀取瀏覽器探測結果（盡力而為，失敗時維持現值）。
+	 * @returns {Promise<void>} 讀取完成（或失敗）時 resolve。
+	 */
+	function loadBrowserInfo() {
+		return fetch(BROWSER_INFO_ROUTE, { headers: { accept: "application/json" } })
+			.then(function (response) {
+				return response.ok ? response.json() : null;
+			})
+			.then(function (payload) {
+				if (payload === null || typeof payload !== "object" || payload.ok !== true) return;
+				publishBrowser({
+					found: payload.found === true,
+					id: typeof payload.id === "string" ? payload.id : "",
+					path: typeof payload.path === "string" ? payload.path : "",
+					reason: typeof payload.reason === "string" ? payload.reason : ""
+				});
+			})
+			.catch(function () {
+				// 路由不存在（host 外掛未掛載）時保持預設值。
+			});
+	}
+
 	// ---------- 卡片元件 ----------
 
 		/** 判斷某欄位是否落在使用者層（已覆蓋）。 */
@@ -524,6 +588,11 @@ window.__ModuleLoader__.load({
 				return scope.subscribe(onChange);
 			}, [scope]);
 			var snapshot = React.useSyncExternalStore(subscribe, function () { return scope.getSnapshot(); });
+			// 瀏覽器探測結果：掛載時向 host 讀取一次。
+			var browser = React.useSyncExternalStore(props.subscribeBrowser, props.getBrowser);
+			React.useEffect(function () {
+				props.loadBrowser();
+			}, []);
 
 			// 預設收合：卡片預設不展開，使用者點擊表頭才展開設定區。
 			var open = React.useState(false);
@@ -546,18 +615,21 @@ window.__ModuleLoader__.load({
 			var exampleOpen = exampleOpenState[0];
 			var setExampleOpen = exampleOpenState[1];
 
+			// 這個席位只提供 view 為 "page" 的完整表單。
+			if (props.view !== undefined && props.view !== "page") return null;
+
 			var status = snapshot.status;
-			// 載入中（或尚未開始讀取）時不渲染，避免閃爍。
-			if (status === "loading" || status === "idle") return null;
+			// 載入中時不渲染，避免閃爍。
+			if (status === "loading") return null;
 
 			var exposed = status === "ready";
 			var writable = snapshot.writable === true;
 			var value = snapshot.value || {};
 			var base = snapshot.base || {};
 			var user = snapshot.user;
-			// host 端在註冊時計算的瀏覽器偵測結果；false 時「添加示例命令」改為顯示原因。
-			var exampleAvailable = base.browserFound === true;
-			var exampleReason = typeof base.browserReason === "string" ? base.browserReason : "";
+			// host 端探測到的瀏覽器；false 時「添加示例命令」改為顯示原因。
+			var exampleAvailable = browser.found === true;
+			var exampleReason = typeof browser.reason === "string" ? browser.reason : "";
 
 			var fields = ["enabled", "shell", "command"];
 			var hasDraft = fields.some(function (field) { return drafts[field] !== undefined; });
@@ -854,7 +926,7 @@ window.__ModuleLoader__.load({
 				onConfirm: confirmExampleCommand,
 				onCancel: cancelExampleDialog
 			}) : null;
-			return React.createElement("li", { className: isOpen ? "dshscc-card dshscc-cardOpen" : "dshscc-card" },
+			return React.createElement("div", { className: isOpen ? "dshscc-card dshscc-cardOpen" : "dshscc-card" },
 				React.createElement("button", {
 					type: "button",
 					className: "dshscc-header",
@@ -876,18 +948,30 @@ window.__ModuleLoader__.load({
 				return ctx.locale.register(NS, { zh: zh, en: en });
 			}, "dsh-startup-command: dictionaries");
 
-			// 綁定本外掛的 settings 命名空間。
-			var scope = ctx.settingsScope.bind({ namespace: NS });
-
-			// 在官方「外掛組態」分頁註冊卡片（settings.plugin.item，鍵為命名空間）。
-			ctx.slots.inject("settings.plugin.item", function () {
-				return ctx.slots.register({
-					name: "settings.plugin.item",
-					key: NS,
-					locale: NS,
-					inject: function () { return { scope: scope }; }
-				}, StartupCommandCard);
-			});
+			// 卡片註冊：等 host 開始服務本外掛的設定命名空間（＝profile 入口 id）
+			// 後，才把卡片註冊進 plugins.bundle.config（以 npm 包名為鍵）。
+			// 舊版 configForms 沒有 whileServed 時，該部署沒有可編輯的欄位，
+			// 因此直接不註冊。
+			if (typeof ctx.configForms.whileServed !== "function") return;
+			ctx.effect(function () {
+				return ctx.configForms.whileServed([NS], function () {
+					var form = ctx.configForms.get(NS);
+					var face = {
+						scope: form,
+						subscribeBrowser: subscribeBrowser,
+						getBrowser: getBrowserInfo,
+						loadBrowser: loadBrowserInfo
+					};
+					return ctx.slots.inject("plugins.bundle.config", function () {
+						return ctx.slots.register({
+							name: "plugins.bundle.config",
+							key: PACKAGE,
+							locale: NS,
+							inject: function () { return face; }
+						}, StartupCommandCard);
+					});
+				});
+			}, "dsh-startup-command: settings card");
 		}
 
 		return { apply: apply, inject: inject };
