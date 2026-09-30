@@ -1,7 +1,8 @@
 {
   "name": "@kagurazakayashi/dsh-startup-command",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A DeepSeek Harness Web plugin that runs a user-defined command after the web profile has started successfully.",
+  "icon": "./icon.svg",
   "license": "MIT",
   "author": "KagurazakaYashi(KagurazakaMiyabi)",
   "keywords": [
@@ -31,8 +32,9 @@
     "index.js",
     "client.js",
     "cordis.patch.yml",
-    "README.md",
-    "README.zh-CN.md",
+    "icon.svg",
+    "locale/*.json",
+    "README*.md",
     "LICENSE",
     "screenshot_cn.png",
     "screenshot_en.png",
@@ -42,6 +44,7 @@
     ".": "./index.js",
     "./client": "./client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "dsh": {

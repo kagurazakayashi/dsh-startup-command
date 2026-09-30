@@ -1,6 +1,6 @@
 # dsh-startup-command
 
-简体中文 · [English](README.md)
+简体中文（中国大陆） · [English (United States)](README.md) · [繁體中文（台灣）](README.zh-TW.md) · [日本語](README.ja.md)
 
 **在 dsh web 启动成功后运行用户自定义命令的 DeepSeek Harness Web 插件。**
 
@@ -72,6 +72,15 @@ C:\Users\<你>\.dsh\profiles\web\plugins\dsh-startup-command\
 ### 3. 配置并重启
 
 在 `C:\Users\<你>\.dsh\profiles\web\cordis.patch.yml` 中为 `dsh-startup-command` 添加 `config` 条目（见下节），然后重启 `dsh web` 生效。重启后，本插件自己的「插件」页（侧边栏「插件」→ 打开本插件）会出现设置卡片，可就地编辑 `enabled` / `shell` / `command`。
+
+**在哪里找到这张卡片**（dsh 0.2.x 起插件配置已不在「设置」对话框里，而在插件自己的页面上）：
+
+1. 在侧栏顶部打开「插件」页（四宫格图标，位于「工作区」之上），不是底部的「设置」。
+2. 等「已安装」列表填充出来。该页需要向 host 查询插件清单，冷启动的浏览器会话里可能要十几秒；列表未出现时页面几乎是空的，并非没有内容。
+3. 在「已安装」里点本插件的条目打开详情页——`1.1.1` 起列表显示本地化名称「启动命令」，旧版本显示包名 `@kagurazakayashi/dsh-startup-command`；点右侧开关或空白处不会进入详情页。
+4. 配置区位于该插件的**说明**与**包含的组件**之间；卡片默认收起，点卡片标题展开。
+
+> 若启用了带背景图案的皮肤，插件页的文字会压在画面上、对比度偏低（该页没有不透明底色，卡片保留自己的底色），临时切换或停用皮肤会更容易看清。
 
 ## 配置详解
 
@@ -192,22 +201,23 @@ dsh-startup-command 执行：{url} 替换 → spawn(命令)
 
 本插件适配的 DSH 版本与运行环境：
 
-| 项目 | 版本 / 说明 |
-| --- | --- |
-| 适配的 DSH core | 最低 `0.2.0-rc.1`（`engines.dsh`；`@deepseek-ai/dsh-settings` 与 `@deepseek-ai/dsh-host-webserver` 两个 peer 为 `>=0.2.0-rc.1 <0.3.0-0`）；运行实测于 `0.2.0-rc.2` |
-| 插件版本 | `1.1.0` |
-| 设置 schema | 插件自己的 schemastery `Config`，`.volatile()` 字段为 `enabled`、`command`（字符串或字符串数组）、`shell`；不再有 `settings.register` / `settings.get` |
-| 设置命名空间 | 本 bundle 的 `cordis.patch.yml` 宣告的 profile 入口 id `dsh-startup-command`；值持久化在 profile 的 `cordis.patch.yml`（例如 `$DSH_HOME/profiles/<profile>/cordis.patch.yml`），不在 `$DSH_HOME/settings.yaml` |
-| 设置卡片席位 | `plugins.bundle.config`，以 npm 包名 `@kagurazakayashi/dsh-startup-command` 为键，由 `@deepseek-ai/dsh-client-ui-plugin-manager` 提供；卡片通过 `ctx.configForms.get("dsh-startup-command")`（`getSnapshot` / `subscribe` / `set` / `unset`）读写 |
-| 客户端注入依赖 | `@deepseek-ai/dsh-client-locale`、`@deepseek-ai/dsh-client-ui-plugin-manager`、`@deepseek-ai/dsh-client-ui-settings` |
-| 浏览器信息路由 | host 上只读的 `GET /dsh-startup-command/browser`；非 GET 返回 `405` `METHOD_NOT_ALLOWED`；路由不存在时卡片退回「未找到」 |
+| 项目            | 版本 / 说明                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 适配的 DSH core | 最低 `0.2.0-rc.1`（`engines.dsh`；`@deepseek-ai/dsh-settings` 与 `@deepseek-ai/dsh-host-webserver` 两个 peer 为 `>=0.2.0-rc.1 <0.3.0-0`）；运行实测于 `0.2.0-rc.2`                                                                                |
+| 插件版本        | `1.1.1`                                                                                                                                                                                                                                           |
+| 设置 schema     | 插件自己的 schemastery `Config`，`.volatile()` 字段为 `enabled`、`command`（字符串或字符串数组）、`shell`；不再有 `settings.register` / `settings.get`                                                                                            |
+| 设置命名空间    | 本 bundle 的 `cordis.patch.yml` 宣告的 profile 入口 id `dsh-startup-command`；值持久化在 profile 的 `cordis.patch.yml`（例如 `$DSH_HOME/profiles/<profile>/cordis.patch.yml`），不在 `$DSH_HOME/settings.yaml`                                             |
+| 设置卡片席位    | `plugins.bundle.config`，以 npm 包名 `@kagurazakayashi/dsh-startup-command` 为键，由 `@deepseek-ai/dsh-client-ui-plugin-manager` 提供；卡片通过 `ctx.configForms.get("dsh-startup-command")`（`getSnapshot` / `subscribe` / `set` / `unset`）读写 |
+| 客户端注入依赖  | `@deepseek-ai/dsh-client-locale`、`@deepseek-ai/dsh-client-ui-plugin-manager`、`@deepseek-ai/dsh-client-ui-settings`                                                                                                                              |
+| 浏览器信息路由  | host 上只读的 `GET /dsh-startup-command/browser`；非 GET 返回 `405` `METHOD_NOT_ALLOWED`；路由不存在时卡片退回「未找到」                                                                                                                          |
 
-| 插件版本 | 可用 core 版本 | 依据 |
-| --- | --- | --- |
-| `1.1.0` | `>= 0.2.0-rc.1 < 0.3.0-0` | 适配 dsh 0.2.x：声明式 `Config`、`configForms`（取代已被移除的 `settingsScope`）、本插件自己「插件」页上的 `plugins.bundle.config` 卡片，以及取代主机注入 schema 字段的浏览器信息路由 |
-| `1.0.1` | 仅 `0.1.x` | 通过 `settings.register` 注册 schema、以 `settings.get` 读取；配置存放于 `$DSH_HOME/settings.yaml` 的 `dsh-startup-command:` 段；卡片经 `settingsScope` 服务注册进 `settings.plugin.item` 席位 |
-| `1.0.0` | 仅 `0.1.x` | 新增示例命令说明框与多条命令编辑卡片；设置机制同 0.1.x |
-| `0.1.0` | 仅 `0.1.x` | 首个版本：`settings.yaml` 中的 `dsh-startup-command` 设置 schema 与网页设置卡片 |
+| 插件版本 | 可用 core 版本            | 依据                                                                                                                                                                                           |
+| -------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1.1.1`  | `>= 0.2.0-rc.1 < 0.3.0-0` | 新增插件展示元信息：`locale/{en,zh}.json` 提供本地化的插件名与简介，`icon.svg` 提供插件页图标；功能与设置机制与 `1.1.0` 相同                                                                   |
+| `1.1.0`  | `>= 0.2.0-rc.1 < 0.3.0-0` | 适配 dsh 0.2.x：声明式 `Config`、`configForms`（取代已被移除的 `settingsScope`）、本插件自己「插件」页上的 `plugins.bundle.config` 卡片，以及取代主机注入 schema 字段的浏览器信息路由          |
+| `1.0.1`  | 仅 `0.1.x`                | 通过 `settings.register` 注册 schema、以 `settings.get` 读取；配置存放于 `$DSH_HOME/settings.yaml` 的 `dsh-startup-command:` 段；卡片经 `settingsScope` 服务注册进 `settings.plugin.item` 席位 |
+| `1.0.0`  | 仅 `0.1.x`                | 新增示例命令说明框与多条命令编辑卡片；设置机制同 0.1.x                                                                                                                                         |
+| `0.1.0`  | 仅 `0.1.x`                | 首个版本：`settings.yaml` 中的 `dsh-startup-command` 设置 schema 与网页设置卡片                                                                                                                |
 
 两个区间没有重叠：dsh 0.2.0 移除了 0.1.x 的 settings API，因此 `1.1.0` 需要 0.2.x，而 `1.0.1` 及更早版本无法在 0.2.x 上运行。
 
@@ -219,4 +229,7 @@ MIT — 见 [LICENSE](LICENSE)，版权归 KagurazakaYashi(KagurazakaMiyabi) 所
 
 ## 语言
 
-- [English](README.md)
+- [English (United States)](README.md)
+- 简体中文（中国大陆）
+- [繁體中文（台灣）](README.zh-TW.md)
+- [日本語](README.ja.md)

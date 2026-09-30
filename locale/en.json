@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Startup command",
+    "description": "Run a custom command after dsh web starts, with placeholders for the GUI address, browser path and home directory."
+  }
+}

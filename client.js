@@ -157,6 +157,138 @@ window.__ModuleLoader__.load({
 			notExposed: "This deployment does not expose this plugin's settings."
 		};
 
+		// 台灣繁體：以 zh 為底，套用台灣用語（指令／設定／儲存／預設／目錄／
+		// 預留位置／擴充功能…）。{url}、{browser}、{home} 與命令列旗標維持原樣。
+		var zhTW = {
+			title: "啟動指令",
+			description: "dsh web 啟動成功後要執行的自訂指令。",
+			enabledLabel: "啟用",
+			enabledHint: "關閉後，dsh web 啟動成功時不會執行任何指令。",
+			shellLabel: "經系統 shell 執行",
+			shellHint: "開啟後，指令會交給系統 shell 執行（預設關閉，直接以參數陣列啟動，路徑含空格時更安全）。",
+			commandLabel: "指令",
+			commandHint: "每條指令會依序執行（前一條結束後才執行下一條）。{url} 會在執行前取代為實際 GUI 位址；{browser} 會自動尋找 Chromium/Chrome/Edge 瀏覽器（優先順序 Chromium > Chrome > Edge，若預設瀏覽器是其中之一則採用預設瀏覽器）；{home} 會取代為使用者資料夾；空白列在儲存時會自動移除。",
+			commandAdd: "新增指令",
+			commandAddExample: "新增範例指令",
+			exampleDialogTitle: "範例指令說明",
+			exampleDialogIntro: "下面這條指令會在啟動時由 dsh 解析並執行；確認後會附加到指令清單末尾，再點擊「儲存」才會生效。",
+			exampleDialogPlaceholdersTitle: "預留位置",
+			exampleDialogFlagsTitle: "參數說明",
+			exampleBrowserCode: "{browser}",
+			exampleBrowserText: "自動尋找 Chromium/Chrome/Edge：優先順序 Chromium > Chrome > Edge；若預設瀏覽器是其中之一，則改用預設瀏覽器。",
+			exampleHomeCode: "{home}",
+			exampleHomeText: "取代為使用者資料夾（例如 C:\\Users\\you 或 /home/you）。",
+			exampleUrlCode: "{url}",
+			exampleUrlText: "取代為實際 GUI 位址（新版為帶 ?token= 的驗證位址）。",
+			exampleUserDataDirCode: "--user-data-dir=\"…\"",
+			exampleUserDataDirText: "瀏覽器設定檔目錄：使用者資料夾/.dsh/dsh-browser-data。",
+			exampleDiskCacheDirCode: "--disk-cache-dir=\"…\"",
+			exampleDiskCacheDirText: "磁碟快取目錄：使用者資料夾/.dsh/dsh-browser-cache。",
+			exampleAppCode: "--app={url}",
+			exampleAppText: "以應用程式模式視窗開啟（無網址列/工具列）。",
+			exampleNoFirstRunCode: "--no-first-run",
+			exampleNoFirstRunText: "不顯示首次執行歡迎畫面。",
+			exampleDisableExtensionsCode: "--disable-extensions",
+			exampleDisableExtensionsText: "不載入任何擴充功能。",
+			exampleDialogCancel: "取消",
+			exampleDialogAdd: "新增",
+			exampleUnavailableTitle: "無法產生範例指令",
+			exampleUnavailableIntro: "未能自動找到 Chromium/Chrome/Edge 瀏覽器，因此無法產生範例指令。",
+			exampleReasonNotFound: "原因：在常見安裝位置均未找到 Chromium、Chrome 或 Edge，且系統預設瀏覽器也不是這三者之一。",
+			exampleReasonUnsupportedPlatform: "原因：目前系統不是 Windows、macOS 或 Linux，無法自動尋找瀏覽器。",
+			exampleClose: "關閉",
+			commandRemove: "刪除",
+			commandMoveUp: "上移",
+			commandMoveDown: "下移",
+			commandPlaceholder: "輸入指令…",
+			overridden: "已覆寫",
+			reset: "重設為預設值",
+			inherit: "繼承",
+			on: "開啟",
+			off: "關閉",
+			save: "儲存",
+			saving: "儲存中…",
+			discard: "捨棄",
+			unsaved: "尚未儲存",
+			saveFailed: "本部署沒有接受這些值，已保留供你修改。",
+			readOnly: "本部署的設定為唯讀。",
+			expand: "展開設定",
+			collapse: "收合設定",
+			notExposed: "本部署沒有開放此外掛的設定。"
+		};
+
+		// 日文：以 en 為底翻譯；短標籤用名詞形，說明句用です・ます調，
+		// {url}、{browser}、{home} 與命令列旗標維持原樣。
+		var ja = {
+			title: "起動コマンド",
+			description: "dsh web の起動完了後に実行するカスタムコマンドです。",
+			enabledLabel: "有効",
+			enabledHint: "オフにすると、dsh web の起動完了後にコマンドを実行しません。",
+			shellLabel: "システムシェル経由で実行",
+			shellHint: "オンにすると、コマンドはシステムシェル経由で実行されます（既定ではオフ。引数配列で直接起動するほうが、パスに空白が含まれる場合も安全です）。",
+			commandLabel: "コマンド",
+			commandHint: "コマンドは順番に実行されます（前のコマンドが終了してから次を実行します）。{url} は実行前に実際の GUI アドレスに置き換えられます。{browser} は Chromium/Chrome/Edge を自動検出します（優先順位は Chromium > Chrome > Edge。既定のブラウザーがそのいずれかであれば既定のブラウザーを使用します）。{home} はユーザーフォルダーに置き換えられます。空行は保存時に自動的に削除されます。",
+			commandAdd: "コマンドを追加",
+			commandAddExample: "サンプルコマンドを追加",
+			exampleDialogTitle: "サンプルコマンドの説明",
+			exampleDialogIntro: "このコマンドは起動時に dsh が解決して実行します。確認するとコマンド一覧の末尾に追加されるので、その後に「保存」をクリックすると反映されます。",
+			exampleDialogPlaceholdersTitle: "プレースホルダー",
+			exampleDialogFlagsTitle: "フラグ",
+			exampleBrowserCode: "{browser}",
+			exampleBrowserText: "Chromium/Chrome/Edge を自動検出します。優先順位は Chromium > Chrome > Edge で、既定のブラウザーがそのいずれかであれば既定のブラウザーを使用します。",
+			exampleHomeCode: "{home}",
+			exampleHomeText: "ユーザーフォルダーに置き換えられます（例: C:\\Users\\you または /home/you）。",
+			exampleUrlCode: "{url}",
+			exampleUrlText: "実際の GUI アドレスに置き換えられます（新しい dsh web では ?token= 付きの認証 URL）。",
+			exampleUserDataDirCode: "--user-data-dir=\"…\"",
+			exampleUserDataDirText: "ブラウザーのプロファイルディレクトリ: ユーザーフォルダー/.dsh/dsh-browser-data。",
+			exampleDiskCacheDirCode: "--disk-cache-dir=\"…\"",
+			exampleDiskCacheDirText: "ディスクキャッシュディレクトリ: ユーザーフォルダー/.dsh/dsh-browser-cache。",
+			exampleAppCode: "--app={url}",
+			exampleAppText: "アプリモードのウィンドウで開きます（アドレスバーやツールバーは表示されません）。",
+			exampleNoFirstRunCode: "--no-first-run",
+			exampleNoFirstRunText: "初回起動時のウェルカム画面を表示しません。",
+			exampleDisableExtensionsCode: "--disable-extensions",
+			exampleDisableExtensionsText: "拡張機能を一切読み込みません。",
+			exampleDialogCancel: "キャンセル",
+			exampleDialogAdd: "追加",
+			exampleUnavailableTitle: "サンプルコマンドを生成できません",
+			exampleUnavailableIntro: "Chromium/Chrome/Edge のブラウザーが見つからなかったため、サンプルコマンドを生成できません。",
+			exampleReasonNotFound: "理由: 一般的なインストール先に Chromium、Chrome、Edge のいずれも見つからず、システムの既定のブラウザーもこの 3 つのいずれでもありません。",
+			exampleReasonUnsupportedPlatform: "理由: 現在の OS は Windows、macOS、Linux のいずれでもないため、ブラウザーの自動検出を利用できません。",
+			exampleClose: "閉じる",
+			commandRemove: "削除",
+			commandMoveUp: "上へ移動",
+			commandMoveDown: "下へ移動",
+			commandPlaceholder: "コマンドを入力…",
+			overridden: "上書き済み",
+			reset: "既定値に戻す",
+			inherit: "継承",
+			on: "オン",
+			off: "オフ",
+			save: "保存",
+			saving: "保存中…",
+			discard: "破棄",
+			unsaved: "未保存",
+			saveFailed: "このデプロイはこれらの値を受け付けませんでした。修正できるようそのまま残しています。",
+			readOnly: "このデプロイの設定は読み取り専用です。",
+			expand: "設定を展開",
+			collapse: "設定を折りたたむ",
+			notExposed: "このデプロイはこのプラグインの設定を公開していません。"
+		};
+
+		// 繁體變體（zh-HK / zh-MO / zh-Hant）一律使用台灣繁體：共用同一個字典物件，
+		// 因此不論語言包把變體的回退指向何處，都不會退回簡體或英文。
+		var STRINGS = {
+			zh: zh,
+			en: en,
+			"zh-TW": zhTW,
+			ja: ja
+		};
+		STRINGS["zh-HK"] = STRINGS["zh-TW"];
+		STRINGS["zh-MO"] = STRINGS["zh-TW"];
+		STRINGS["zh-Hant"] = STRINGS["zh-TW"];
+
 		// ---------- 欄位規格 ----------
 		// format：把 host 解析值轉成草稿文字；parse：把草稿文字轉成寫入（clear 或 set）。
 		// boolean 欄位以 ""（繼承）/ "true" / "false" 三態編輯。
@@ -944,8 +1076,10 @@ window.__ModuleLoader__.load({
 			mountStyle();
 
 			// 註冊多語字典（回傳的 disposer 交由 ctx.effect 在卸載時清理）。
+			// 繁體變體與日文目前由 dsh 內建 locale 服務之外的語言包外掛啟用；
+			// 這裡先把字典備齊，語言包註冊並切換後即可直接生效。
 			ctx.effect(function () {
-				return ctx.locale.register(NS, { zh: zh, en: en });
+				return ctx.locale.register(NS, STRINGS);
 			}, "dsh-startup-command: dictionaries");
 
 			// 卡片註冊：等 host 開始服務本外掛的設定命名空間（＝profile 入口 id）
