@@ -1,6 +1,8 @@
 # dsh-startup-command
 
-Language: English (United States) · [简体中文（中国大陆）](README.zh-CN.md) · [繁體中文（台灣）](README.zh-TW.md) · [日本語](README.ja.md)
+[简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | English | [日本語](README.ja.md)
+
+![dsh-startup-command](icon.svg)
 
 **A DeepSeek Harness Web plugin that runs a user-defined command after the web profile has started successfully.**
 
@@ -12,9 +14,7 @@ The command is fully driven by configuration (the `dsh-startup-command` entry of
 
 The settings card on this plugin's own page — sidebar **Plugins** → open this plugin (the configuration section sits between its description and its rows):
 
-![Startup command settings card (English)](screenshot_en.png)
-
-![启动命令设置卡片（简体中文）](screenshot_cn.png)
+![Startup command settings card](screenshot.png)
 
 ## Features
 
@@ -204,7 +204,7 @@ The DSH versions and runtime environment this plugin targets:
 | Item               | Version / notes                                                                                                                                                                                                                                                                        |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Targeted DSH core  | minimum `0.2.0-rc.1` (`engines.dsh`; the `@deepseek-ai/dsh-settings` and `@deepseek-ai/dsh-host-webserver` peers are `>=0.2.0-rc.1 <0.3.0-0`); runtime-verified on `0.2.0-rc.2`                                                                                                        |
-| Plugin version     | `1.1.1`                                                                                                                                                                                                                                                                                |
+| Plugin version     | `1.1.2`                                                                                                                                                                                                                                                                                |
 | Settings schema    | the plugin's own schemastery `Config` with the `.volatile()` fields `enabled`, `command` (string or string[]), `shell`; there is no `settings.register` / `settings.get`                                                                                                               |
 | Settings namespace | the profile entry id `dsh-startup-command`, declared by this bundle's `cordis.patch.yml`; values persist in the profile's `cordis.patch.yml` (e.g. `$DSH_HOME/profiles/<profile>/cordis.patch.yml`), not in `$DSH_HOME/settings.yaml`                                                           |
 | Settings card slot | `plugins.bundle.config`, keyed by the npm package name `@kagurazakayashi/dsh-startup-command`, provided by `@deepseek-ai/dsh-client-ui-plugin-manager`; the card reads and writes through `ctx.configForms.get("dsh-startup-command")` (`getSnapshot` / `subscribe` / `set` / `unset`) |
@@ -213,6 +213,7 @@ The DSH versions and runtime environment this plugin targets:
 
 | Plugin version | Usable core versions      | Basis                                                                                                                                                                                                                                                           |
 | -------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1.1.2`        | `>= 0.2.0-rc.1 < 0.3.0-0` | Adds `screenshots.json` for storefront screenshots, points the README at a single `screenshot.png`, and switches the language bar and icon to native Markdown; behaviour and the settings mechanism are unchanged from `1.1.1`                                  |
 | `1.1.1`        | `>= 0.2.0-rc.1 < 0.3.0-0` | Adds plugin display metadata: `locale/{en,zh}.json` supplies the localized plugin name and summary, and `icon.svg` supplies the Plugins-page artwork; behaviour and the settings mechanism are unchanged from `1.1.0`                                           |
 | `1.1.0`        | `>= 0.2.0-rc.1 < 0.3.0-0` | Adapts the plugin to dsh 0.2.x: declarative `Config`, `configForms` (replacing the removed `settingsScope`), the `plugins.bundle.config` card on the plugin's own **Plugins** page, and the browser-info route instead of host-computed schema fields           |
 | `1.0.1`        | `0.1.x` only              | Registers the schema with `settings.register` and reads it with `settings.get`; the `dsh-startup-command:` section of `$DSH_HOME/settings.yaml` is the storage; the card is registered into the `settings.plugin.item` slot through the `settingsScope` service |
@@ -226,10 +227,3 @@ Migrating from `1.0.1` (dsh 0.1.x): dsh 0.2.0 imports old `$DSH_HOME/settings.ya
 ## License
 
 MIT — see [LICENSE](LICENSE), copyright KagurazakaYashi(KagurazakaMiyabi).
-
-## Languages
-
-- English (United States)
-- [简体中文（中国大陆）](README.zh-CN.md)
-- [繁體中文（台灣）](README.zh-TW.md)
-- [日本語](README.ja.md)

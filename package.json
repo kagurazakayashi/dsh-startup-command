@@ -1,6 +1,6 @@
 {
   "name": "@kagurazakayashi/dsh-startup-command",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A DeepSeek Harness Web plugin that runs a user-defined command after the web profile has started successfully.",
   "icon": "./icon.svg",
   "license": "MIT",
@@ -36,8 +36,7 @@
     "locale/*.json",
     "README*.md",
     "LICENSE",
-    "screenshot_cn.png",
-    "screenshot_en.png",
+    "screenshot.png",
     "screenshots.json"
   ],
   "exports": {

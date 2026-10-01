@@ -1,6 +1,8 @@
 # dsh-startup-command
 
-繁體中文（台灣） · [English (United States)](README.md) · [简体中文（中国大陆）](README.zh-CN.md) · [日本語](README.ja.md)
+[简体中文](README.zh-CN.md) | 繁體中文 | [English](README.md) | [日本語](README.ja.md)
+
+![dsh-startup-command](icon.svg)
 
 **在 dsh web 啟動成功後執行使用者自訂命令的 DeepSeek Harness Web 外掛。**
 
@@ -12,9 +14,7 @@
 
 本外掛自己的「插件」頁（側邊欄「外掛」→ 開啟本外掛，設定區位於外掛說明與各項之間）顯示的設定卡片：
 
-![啟動命令設定卡片（簡體中文）](screenshot_cn.png)
-
-![Startup command settings card (English)](screenshot_en.png)
+![啟動命令設定卡片](screenshot.png)
 
 ## 功能特性
 
@@ -204,7 +204,7 @@ dsh-startup-command 執行：{url} 替換 → spawn(命令)
 | 專案            | 版本 / 說明                                                                                                                                                                                                                                       |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 適配的 DSH core | 最低 `0.2.0-rc.1`（`engines.dsh`；`@deepseek-ai/dsh-settings` 與 `@deepseek-ai/dsh-host-webserver` 兩個 peer 為 `>=0.2.0-rc.1 <0.3.0-0`）；執行實測於 `0.2.0-rc.2`                                                                                |
-| 外掛版本        | `1.1.1`                                                                                                                                                                                                                                           |
+| 外掛版本        | `1.1.2`                                                                                                                                                                                                                                           |
 | 設定 schema     | 外掛自己的 schemastery `Config`，`.volatile()` 欄位為 `enabled`、`command`（字串或字串陣列）、`shell`；不再有 `settings.register` / `settings.get`                                                                                                |
 | 設定名稱空間    | 本 bundle 的 `cordis.patch.yml` 宣告的 profile 入口 id `dsh-startup-command`；值持久化在 profile 的 `cordis.patch.yml`（例如 `$DSH_HOME/profiles/<profile>/cordis.patch.yml`），不在 `$DSH_HOME/settings.yaml`                                             |
 | 設定卡片席位    | `plugins.bundle.config`，以 npm 包名 `@kagurazakayashi/dsh-startup-command` 為鍵，由 `@deepseek-ai/dsh-client-ui-plugin-manager` 提供；卡片透過 `ctx.configForms.get("dsh-startup-command")`（`getSnapshot` / `subscribe` / `set` / `unset`）讀寫 |
@@ -213,6 +213,7 @@ dsh-startup-command 執行：{url} 替換 → spawn(命令)
 
 | 外掛版本 | 可用 core 版本            | 依據                                                                                                                                                                                           |
 | -------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1.1.2`  | `>= 0.2.0-rc.1 < 0.3.0-0` | 新增 `screenshots.json`（市場截圖清單），README 改為引用單一 `screenshot.png`、語言列與圖示改為原生 Markdown；功能與設定機制與 `1.1.1` 相同                                                    |
 | `1.1.1`  | `>= 0.2.0-rc.1 < 0.3.0-0` | 新增外掛展示元資訊：`locale/{en,zh}.json` 提供本地化的外掛名與簡介，`icon.svg` 提供外掛頁圖示；功能與設定機制與 `1.1.0` 相同                                                                   |
 | `1.1.0`  | `>= 0.2.0-rc.1 < 0.3.0-0` | 適配 dsh 0.2.x：宣告式 `Config`、`configForms`（取代已被移除的 `settingsScope`）、本外掛自己「外掛」頁上的 `plugins.bundle.config` 卡片，以及取代主機注入 schema 欄位的瀏覽器資訊路由          |
 | `1.0.1`  | 僅 `0.1.x`                | 透過 `settings.register` 註冊 schema、以 `settings.get` 讀取；配置存放於 `$DSH_HOME/settings.yaml` 的 `dsh-startup-command:` 段；卡片經 `settingsScope` 服務註冊進 `settings.plugin.item` 席位 |
@@ -226,10 +227,3 @@ dsh-startup-command 執行：{url} 替換 → spawn(命令)
 ## License
 
 MIT — 見 [LICENSE](LICENSE)，版權歸 KagurazakaYashi(KagurazakaMiyabi) 所有。
-
-## 語言
-
-- [English (United States)](README.md)
-- [简体中文（中国大陆）](README.zh-CN.md)
-- 繁體中文（台灣）
-- [日本語](README.ja.md)

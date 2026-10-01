@@ -1,6 +1,8 @@
 # dsh-startup-command
 
-Language: [English (United States)](README.md) · [简体中文（中国大陆）](README.zh-CN.md) · [繁體中文（台灣）](README.zh-TW.md) · 日本語
+[简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [English](README.md) | 日本語
+
+![dsh-startup-command](icon.svg)
 
 **Web プロファイルの起動に成功した後に、ユーザー定義のコマンドを実行する DeepSeek Harness Web プラグイン。**
 
@@ -12,9 +14,7 @@ Language: [English (United States)](README.md) · [简体中文（中国大陆�
 
 本プラグイン自身のページ（サイドバーの **Plugins** → 本プラグインを開く。設定セクションは説明と各行の間にあります）にある設定カード:
 
-![Startup command settings card (English)](screenshot_en.png)
-
-![启动命令设置卡片（简体中文）](screenshot_cn.png)
+![起動コマンドの設定カード](screenshot.png)
 
 ## 機能
 
@@ -204,7 +204,7 @@ child runs detached; dsh keeps serving
 | Item               | Version / notes                                                                                                                                                                                                                                                                        |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Targeted DSH core  | minimum `0.2.0-rc.1` (`engines.dsh`; the `@deepseek-ai/dsh-settings` and `@deepseek-ai/dsh-host-webserver` peers are `>=0.2.0-rc.1 <0.3.0-0`); runtime-verified on `0.2.0-rc.2`                                                                                                        |
-| Plugin version     | `1.1.1`                                                                                                                                                                                                                                                                                |
+| Plugin version     | `1.1.2`                                                                                                                                                                                                                                                                                |
 | Settings schema    | the plugin's own schemastery `Config` with the `.volatile()` fields `enabled`, `command` (string or string[]), `shell`; there is no `settings.register` / `settings.get`                                                                                                               |
 | Settings namespace | the profile entry id `dsh-startup-command`, declared by this bundle's `cordis.patch.yml`; values persist in the profile's `cordis.patch.yml` (e.g. `$DSH_HOME/profiles/<profile>/cordis.patch.yml`), not in `$DSH_HOME/settings.yaml`                                                           |
 | Settings card slot | `plugins.bundle.config`, keyed by the npm package name `@kagurazakayashi/dsh-startup-command`, provided by `@deepseek-ai/dsh-client-ui-plugin-manager`; the card reads and writes through `ctx.configForms.get("dsh-startup-command")` (`getSnapshot` / `subscribe` / `set` / `unset`) |
@@ -213,6 +213,7 @@ child runs detached; dsh keeps serving
 
 | Plugin version | Usable core versions      | Basis                                                                                                                                                                                                                                                           |
 | -------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1.1.2`        | `>= 0.2.0-rc.1 < 0.3.0-0` | ストアフロント用の `screenshots.json` を追加し、README のスクリーンショットを単一の `screenshot.png` に変更、言語バーとアイコンをネイティブ Markdown に変更。動作と設定の仕組みは `1.1.1` から変更なし                                                          |
 | `1.1.1`        | `>= 0.2.0-rc.1 < 0.3.0-0` | Adds plugin display metadata: `locale/{en,zh}.json` supplies the localized plugin name and summary, and `icon.svg` supplies the Plugins-page artwork; behaviour and the settings mechanism are unchanged from `1.1.0`                                           |
 | `1.1.0`        | `>= 0.2.0-rc.1 < 0.3.0-0` | Adapts the plugin to dsh 0.2.x: declarative `Config`, `configForms` (replacing the removed `settingsScope`), the `plugins.bundle.config` card on the plugin's own **Plugins** page, and the browser-info route instead of host-computed schema fields           |
 | `1.0.1`        | `0.1.x` only              | Registers the schema with `settings.register` and reads it with `settings.get`; the `dsh-startup-command:` section of `$DSH_HOME/settings.yaml` is the storage; the card is registered into the `settings.plugin.item` slot through the `settingsScope` service |
@@ -226,10 +227,3 @@ child runs detached; dsh keeps serving
 ## License
 
 MIT — 詳細は [LICENSE](LICENSE) を参照。著作権は KagurazakaYashi(KagurazakaMiyabi) に帰属します。
-
-## Languages
-
-- [English (United States)](README.md)
-- [简体中文（中国大陆）](README.zh-CN.md)
-- [繁體中文（台灣）](README.zh-TW.md)
-- 日本語
